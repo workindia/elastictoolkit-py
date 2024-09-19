@@ -1,0 +1,18 @@
+repos:
+    - repo: https://github.com/ambv/black
+      rev: 24.8.0
+      hooks:
+          - id: black
+            language_version: python3.10
+            args: ["--line-length", "79"]
+    - repo: https://github.com/PyCQA/flake8
+      rev: 7.1.1
+      hooks:
+          - id: flake8
+            args:
+                [
+                    "--select=B,C,E,F,W,T4,B9",
+                    "--max-complexity=18",
+                    "--max-line-length=79",
+                    "--ignore=E722,E203,E501,W503,F405",
+                ]
