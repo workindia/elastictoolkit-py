@@ -1,5 +1,6 @@
 RELEASE_PARTS := major minor patch
 RELEASE_TYPES := prod stag dev
+UPSTREAM_URL := https://github.com/workindia/elastictoolkit-py
 
 help:
 	@echo "clean		remove all build, coverage and python artifacts"
@@ -27,7 +28,7 @@ clean-pyc: ## remove Python file artifacts
 	find . -name '__pycache__' -exec rm -fr {} +
 
 init: ## initialise Build Environment
-	git remote add upstream https://github.com/workindia/elastictoolkit-py
+	git remote set-url upstream "$(UPSTREAM_URL)" 2>/dev/null || git remote add upstream "$(UPSTREAM_URL)"
 	pip install -e '.[develop]'
 
 dist: clean ## builds source and wheel package
