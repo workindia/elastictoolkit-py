@@ -18,6 +18,9 @@ def read(filename):
 # Package Dependencies
 install_requires = [
     "typing-extensions",
+    "elasticsearch5>=5.5.3",
+    "elasticsearch8>=8.2.0",
+    "pydantic==1.9.1,<2.0.0",
 ]
 
 # Dev Dependencies
