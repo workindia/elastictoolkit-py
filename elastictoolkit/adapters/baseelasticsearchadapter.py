@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Any, Dict, List, Mapping, Optional
 
 from elastictoolkit.constants import ClientType
-from elastictoolkit.exceptions import (
+from elastictoolkit.adapters.exceptions import (
     ClientNotReadyError,
     ImproperESAdapterConfigError,
 )

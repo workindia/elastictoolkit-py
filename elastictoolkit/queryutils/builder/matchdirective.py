@@ -1,4 +1,5 @@
 import copy
+import logging
 import typing as t
 from typing_extensions import Self
 from elasticquerydsl.base import DSLQuery, BoolQuery
@@ -9,18 +10,35 @@ from elasticquerydsl.filter import (
     ScriptQuery,
     TermQuery,
     TermsQuery,
+    ExistsQuery,
 )
 from elasticquerydsl.utils import BooleanDSLBuilder
 
 from elastictoolkit.queryutils.types import NestedField
 from elastictoolkit.queryutils.consts import (
+    AndQueryOp,
     MatchMode,
     FieldMatchType,
     WaterFallMatchOp,
 )
 
+from elastictoolkit.queryutils.builder.helpers.valueparser import (
+    ValueParser,
+    RuntimeValueParser,
+)
+
+logger = logging.getLogger(__name__)
+
 
 class MatchDirective:
+    value_parser_cls: t.Type[ValueParser] = RuntimeValueParser
+    value_parser_prefix: str = "match_params"
+    value_parser_config: t.Dict[str, t.Any] = {
+        "parser_cls": RuntimeValueParser,
+        "prefix": "match_params",
+    }
+    and_query_op: AndQueryOp = AndQueryOp.FILTER
+
     def __init__(
         self, mode=MatchMode.INCLUDE, nullable_value: bool = False
     ) -> None:
@@ -33,12 +51,26 @@ class MatchDirective:
         self._values_list = None
         self._values_map = None
 
+    def configure(
+        self,
+        value_parser_config: t.Dict[str, t.Any] = None,
+        and_query_op: AndQueryOp = None,
+    ):
+        self.value_parser_config = (
+            value_parser_config or self.value_parser_config
+        )
+        self.and_query_op = and_query_op if and_query_op else self.and_query_op
+        return self
+
     def copy(
         self,
         fields: bool = False,
         values: bool = False,
         match_params: bool = False,
     ) -> Self:
+        logger.warning(
+            f"Copy method not implemented for {type(self).__name__} and will generate a deepcopy which may not be efficient."
+        )
         self_copy = copy.deepcopy(self)
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
@@ -83,18 +115,8 @@ class MatchDirective:
                 f"{type(self).__name__} directive requires: `values_list`. This must be set using `set_values` method."
             )
         if not hasattr(self, "_values_list_parsed"):
-            values_list_parsed = []
-            for v in self._values_list:
-                should_unpack = isinstance(v, str) and v.startswith("*")
-                if should_unpack:
-                    # TODO: Refactor this
-                    v = v[1:]
-                parsed_value = self._parse_runtime_value(v)
-                if should_unpack and hasattr(parsed_value, "__iter__"):
-                    values_list_parsed.extend(parsed_value)
-                else:
-                    values_list_parsed.append(parsed_value)
-            self._values_list_parsed = values_list_parsed
+            value_parser = self.get_value_parser()
+            self._values_list_parsed = value_parser.parse(self._values_list)
         return self._values_list_parsed
 
     @property
@@ -104,11 +126,22 @@ class MatchDirective:
                 f"{type(self).__name__} directive requires: `values_map`. This must be set using `set_values` method."
             )
         if not hasattr(self, "_values_map_parsed"):
-            self._values_map_parsed = dict(
-                (k, self._parse_runtime_value(v))
-                for k, v in self._values_map.items()
-            )
+            value_parser = self.get_value_parser()
+            self._values_map_parsed = value_parser.parse(self._values_map)
         return self._values_map_parsed
+
+    def get_value_parser(self) -> ValueParser:
+        parser_cls = self.value_parser_config.get("parser_cls")
+        if not parser_cls:
+            raise ValueError(
+                f"Value parser class not set for {type(self).__name__}"
+            )
+        parser_kwargs = {"data": self.match_params}
+        for k, v in self.value_parser_config.items():
+            if k != "parser_cls":
+                parser_kwargs[k] = v
+        parser = parser_cls(**parser_kwargs)
+        return parser
 
     def execute(self, bool_builder: BooleanDSLBuilder):
         bool_builder.add_should_query(*self._get_bool_should_queries())
@@ -125,67 +158,24 @@ class MatchDirective:
         return []
 
     def _get_bool_must_queries(self) -> t.List[DSLQuery]:
-        return []
+        if self.and_query_op != AndQueryOp.MUST:
+            return []
+        return self._get_bool_and_queries()
 
     def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:
         return []
 
     def _get_bool_filter_queries(self) -> t.List[DSLQuery]:
+        if self.and_query_op != AndQueryOp.FILTER:
+            return []
+        return self._get_bool_and_queries()
+
+    def _get_bool_and_queries(self) -> t.List[DSLQuery]:
+        """
+        Generates AND operation queries. This is used for either `must` or
+        `filter` operation based on `and_query_op`
+        """
         return []
-
-    def _parse_runtime_value(self, value) -> t.Any:
-        """
-        Parses the input `value` based on its type and content, dynamically resolving it if necessary.
-
-        The function handles three cases:
-        1. **String Starting with `match_params.`**:
-        - If `value` is a string and starts with the prefix `match_params.`, the function treats it as a key path within the `self.match_params` dictionary.
-        - It traverses `self.match_params` according to the key path, resolving the string to the corresponding value in the dictionary.
-        - For example, if `self.match_params = {"foo": {"bar": 1}}` and `value = "match_params.foo.bar"`, the function will return `1`.
-        - If any part of the key path does not exist within `self.match_params`, the function returns `None`.
-
-        2. **Callable (Function)**:
-        - If `value` is a callable (a function), the function executes it, passing `self.match_params` as the argument.
-        - The return value of the function is returned by `_parse_runtime_value`.
-        - This allows for dynamic computation of values based on `self.match_params`.
-
-        3. **Other Types**:
-        - If `value` is neither a string starting with `match_params.` nor a callable, the function simply returns `value` as it is.
-        - This ensures that other types of values (e.g., integers, lists, etc.) are handled correctly without modification.
-
-        Args:
-            value (str | callable | Any): The value to be parsed. It can be:
-                - A string that starts with `match_params.` indicating a key path within `self.match_params`.
-                - A callable function that accepts `self.match_params` as its argument.
-                - Any other value that should be returned as-is.
-
-        Returns:
-            Any: The resolved value, which could be:
-                - The value from `self.match_params` corresponding to the key path in the string.
-                - The result of the function if `value` is callable.
-                - The original `value` if it is of any other type.
-        """
-
-        if isinstance(value, str):
-            if value.startswith("match_params."):
-                # Extract the key path after 'match_params.'
-                key_path = value[len("match_params.") :]
-                keys = key_path.split(".")
-
-                # Traverse the match_params dictionary to get the value
-                result = self.match_params
-                for key in keys:
-                    result = result.get(key)
-                    if result is None:
-                        break
-                return result
-
-        elif callable(value):
-            # If the value is a function, execute and return the value
-            return value(self.match_params)
-
-        # If it's not a special case, return the value as it is
-        return value
 
 
 class ConstMatchDirective(MatchDirective):
@@ -210,14 +200,17 @@ class ConstMatchDirective(MatchDirective):
     ) -> Self:
         self_copy = self.__class__(
             self.rule, self.mode, self.nullable_value, self._name
-        )
+        ).configure(self.value_parser_config, self.and_query_op)
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
         self_copy._match_params = self._match_params if match_params else None
         return self_copy
 
-    def _get_bool_filter_queries(self) -> t.List[DSLQuery]:
-        return self._get_bool_queries(MatchMode.INCLUDE)
+    def _get_bool_and_queries(self) -> t.List[DSLQuery]:
+        and_queries = self._get_bool_queries(
+            MatchMode.INCLUDE
+        ) or self._get_bool_queries(MatchMode.INCLUDE_IF_EXIST_ANY)
+        return and_queries
 
     def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:
         return self._get_bool_queries(MatchMode.EXCLUDE)
@@ -231,17 +224,16 @@ class ConstMatchDirective(MatchDirective):
     def _make_match_dsl_query(self) -> t.Optional[DSLQuery]:
         self._validate_match_parameters()
 
+        not_exists_query = self._collect_not_exists_query()
         match_queries = self._collect_match_queries()
 
-        if len(match_queries) == 1:
+        if len(match_queries) == 1 and not not_exists_query:
             return match_queries[0]  # No need to build a Bool Query
 
-        return self._build_bool_query(match_queries)
+        return self._build_bool_query(match_queries, not_exists_query)
 
     def _validate_match_parameters(self) -> None:
         if not self.values_list and not self.nullable_value:
-            # TODO: remove print
-            print("ERROR:", self._name)
             raise ValueError(f"No match value set for {type(self).__name__}")
 
         fields, nested_fields = self.fields
@@ -254,7 +246,29 @@ class ConstMatchDirective(MatchDirective):
         match_queries.extend(self._get_nested_fields_queries())
         return match_queries
 
-    def _build_bool_query(self, match_queries: t.List[DSLQuery]) -> DSLQuery:
+    def _collect_not_exists_query(self) -> t.Optional[DSLQuery]:
+        if self.mode != MatchMode.INCLUDE_IF_EXIST_ANY:
+            return None
+        # Return a query that checks if none of the fields exists
+        fields, nested_fields = self.fields
+        exists_queries = [ExistsQuery(f) for f in fields]
+        exists_queries.extend(
+            [
+                NestedQuery(
+                    path=f.nested_path, query=ExistsQuery(f.field_name)
+                )
+                for f in nested_fields
+            ]
+        )
+        bool_builder = BooleanDSLBuilder()
+        bool_builder.add_must_not_query(*exists_queries)
+        return bool_builder.build()
+
+    def _build_bool_query(
+        self,
+        match_queries: t.List[DSLQuery],
+        not_exists_query: DSLQuery,
+    ) -> DSLQuery:
         bool_builder = BooleanDSLBuilder()
 
         if self.rule == FieldMatchType.ANY:
@@ -262,7 +276,14 @@ class ConstMatchDirective(MatchDirective):
         elif self.rule == FieldMatchType.ALL:
             bool_builder.add_filter_query(*match_queries)
 
-        return bool_builder.build()
+        match_bool_query = bool_builder.build()
+
+        if not_exists_query:
+            # Insert not exists query if MatchMode is `INCLUDE_IF_EXISTS_ANY`
+            bool_builder = BooleanDSLBuilder()
+            bool_builder.add_should_query(not_exists_query, match_bool_query)
+            match_bool_query = bool_builder.build()
+        return match_bool_query
 
     def _get_fields_queries(self) -> t.List[DSLQuery]:
         fields, _ = self.fields
@@ -328,7 +349,7 @@ class WaterfallFieldMatchDirective(ConstMatchDirective):
             self.mode,
             self.nullable_value,
             self._name,
-        )
+        ).configure(self.value_parser_config, self.and_query_op)
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
         self_copy._match_params = self._match_params if match_params else None
@@ -345,7 +366,8 @@ class WaterfallFieldMatchDirective(ConstMatchDirective):
                 raise ValueError(
                     f"{type(self).__name__} directive requires exactly 1 value. Given: {len(self._values_list)}"
                 )
-            value_parsed = self._parse_runtime_value(self._values_list[0])
+            value_parser = self.get_value_parser()
+            value_parsed = value_parser.parse(self._values_list[0])
             self._values_list_parsed = self._get_waterfall_match_values(
                 value_parsed
             )
@@ -378,14 +400,16 @@ class RangeMatchDirective(MatchDirective):
         values: bool = False,
         match_params: bool = False,
     ) -> Self:
-        self_copy = self.__class__(self.mode, self.nullable_value)
+        self_copy = self.__class__(self.mode, self.nullable_value).configure(
+            self.value_parser_config, self.and_query_op
+        )
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
         self_copy._values_map = self._values_map if values else None
         self_copy._match_params = self._match_params if match_params else None
         return self_copy
 
-    def _get_bool_filter_queries(self) -> t.List[DSLQuery]:
+    def _get_bool_and_queries(self) -> t.List[DSLQuery]:
         return self._get_bool_queries(MatchMode.INCLUDE)
 
     def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:
@@ -447,14 +471,16 @@ class ScriptMatchDirective(MatchDirective):
         values: bool = False,
         match_params: bool = False,
     ) -> Self:
-        self_copy = self.__class__(self.script, self.mode)
+        self_copy = self.__class__(self.script, self.mode).configure(
+            self.value_parser_config, self.and_query_op
+        )
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
         self_copy._values_map = self._values_map if values else None
         self_copy._match_params = self._match_params if match_params else None
         return self_copy
 
-    def _get_bool_filter_queries(self) -> t.List[DSLQuery]:
+    def _get_bool_and_queries(self) -> t.List[DSLQuery]:
         return self._get_bool_queries(MatchMode.INCLUDE)
 
     def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:

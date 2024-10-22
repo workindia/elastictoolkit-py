@@ -2,6 +2,9 @@ import typing as t
 from elasticquerydsl.base import DSLQuery
 from elasticquerydsl.utils import BooleanDSLBuilder
 
+from elastictoolkit.queryutils.builder.custommatchdirective import (
+    CustomMatchDirective,
+)
 from elastictoolkit.queryutils.types import FieldValue
 from elastictoolkit.queryutils.builder.matchdirective import MatchDirective
 from elastictoolkit.queryutils.builder.directivevaluemapper import (
@@ -34,6 +37,10 @@ class DirectiveEngine:
             directive = directive.copy()
             fields, values_list, values_map = [], [], {}
             value_mapper = self.Config.value_mapper
+            if isinstance(directive, CustomMatchDirective):
+                directive.validate_directive_engine(
+                    self
+                ).set_directive_value_mapper(value_mapper)
             attr_field_mapping: FieldValue = value_mapper.get_field_value(
                 attr_key
             )
@@ -45,8 +52,8 @@ class DirectiveEngine:
                     attr_field_mapping.values_map,
                 )
             directive.set_match_params(self.match_params)
+            # if fields: # TODO: Remove if not needed
+            directive.set_field(*fields)
             directive.set_values(*values_list, **values_map)
-            if fields:
-                directive.set_field(*fields)
             directive.execute(bool_builder)
         return bool_builder.build()

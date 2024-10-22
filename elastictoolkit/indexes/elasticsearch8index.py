@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Any, Dict, Optional, Type
 
 from elastictoolkit.indexes.baseindex import BaseIndex
-from elastictoolkit.exceptions import ImproperESIndexConfigError
+from elastictoolkit.indexes.exceptions import ImproperESIndexConfigError
 
 
 class Elasticsearch8Index(BaseIndex):

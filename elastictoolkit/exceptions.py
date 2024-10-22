@@ -1,15 +1,7 @@
-# Package Base Exception Class
 class ElasticToolkitError(Exception):
-    pass
+    """
+    Base exception class for the ElasticToolkit package.
+    Each module have their own exceptions, but they all inherit from the Base Exception class
+    """
 
-
-class ClientNotReadyError(ElasticToolkitError):
-    pass
-
-
-class ImproperESAdapterConfigError(ElasticToolkitError):
-    pass
-
-
-class ImproperESIndexConfigError(ElasticToolkitError):
     pass

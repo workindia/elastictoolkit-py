@@ -1,5 +1,4 @@
 from typing import Any, Dict, List, Mapping, Optional
-
 from elasticsearch5 import Elasticsearch, NotFoundError as ESDocNotFoundError
 
 from elastictoolkit.adapters.baseelasticsearchadapter import (

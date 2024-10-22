@@ -4,7 +4,7 @@ from elasticsearch5 import NotFoundError as ESDocNotFoundError
 
 from elastictoolkit.adapters import Elasticsearch5Adapter
 from elastictoolkit.constants import ClientType
-from elastictoolkit.exceptions import ImproperESIndexConfigError
+from elastictoolkit.indexes.exceptions import ImproperESIndexConfigError
 from elastictoolkit.indexes.baseindex import BaseIndex
 
 

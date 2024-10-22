@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
 from elastictoolkit.adapters import BaseElasticsearchAdapter
-from elastictoolkit.exceptions import ImproperESIndexConfigError
+from elastictoolkit.indexes.exceptions import ImproperESIndexConfigError
 
 
 class BaseIndex(ABC):
