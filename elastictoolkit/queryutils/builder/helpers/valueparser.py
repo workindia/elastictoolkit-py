@@ -97,7 +97,8 @@ class RuntimeValueParser(ValueParser):
 
     def _parse_iterable(self, value: Union[list, tuple]) -> list:
         """
-        Recursively parses each element in a list or tuple.
+        Recursively parses each element in a list or tuple. Values reulting to `null`
+        are not appended in the final result
 
         Args:
             value (list | tuple): The iterable to parse.
@@ -107,11 +108,25 @@ class RuntimeValueParser(ValueParser):
         """
         result = []
         for item in value:
-            if isinstance(item, str) and item.startswith("*"):
-                parsed_value = self.parse(item[1:])
-                result.extend(self._unpack_value(parsed_value))
-            else:
-                result.append(self.parse(item))
+            # Determine parsed value and whether it needs unpacking
+            parsed_value = self.parse(
+                item[1:]
+                if isinstance(item, str) and item.startswith("*")
+                else item
+            )
+            should_unpack = (
+                isinstance(item, str)
+                and item.startswith("*")
+                or (callable(item) and getattr(item, "unpack", False))
+            )
+
+            # Append or extend based on unpacking status
+            if parsed_value is not None:
+                if should_unpack:
+                    result.extend(self._unpack_value(parsed_value))
+                else:
+                    result.append(parsed_value)
+
         return result
 
     def _resolve_key_path(self, key_path: str) -> Any:
