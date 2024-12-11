@@ -31,8 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 class MatchDirective:
-    value_parser_cls: t.Type[ValueParser] = RuntimeValueParser
-    value_parser_prefix: str = "match_params"
     value_parser_config: t.Dict[str, t.Any] = {
         "parser_cls": RuntimeValueParser,
         "prefix": "match_params",
@@ -227,6 +225,9 @@ class ConstMatchDirective(MatchDirective):
         not_exists_query = self._collect_not_exists_query()
         match_queries = self._collect_match_queries()
 
+        if not match_queries and not not_exists_query:
+            return None
+
         if len(match_queries) == 1 and not not_exists_query:
             return match_queries[0]  # No need to build a Bool Query
 
@@ -368,9 +369,11 @@ class WaterfallFieldMatchDirective(ConstMatchDirective):
                 )
             value_parser = self.get_value_parser()
             value_parsed = value_parser.parse(self._values_list[0])
-            self._values_list_parsed = self._get_waterfall_match_values(
-                value_parsed
-            )
+            self._values_list_parsed = []
+            if value_parsed is not None:
+                self._values_list_parsed = self._get_waterfall_match_values(
+                    value_parsed
+                )
 
         return self._values_list_parsed
 
@@ -421,8 +424,9 @@ class RangeMatchDirective(MatchDirective):
         match_dsl_query = self._make_match_dsl_query()
         return [match_dsl_query] if match_dsl_query else []
 
-    def _make_match_dsl_query(self) -> ScriptQuery:
-        self._validate_match_parameters()
+    def _make_match_dsl_query(self) -> t.Optional[DSLQuery]:
+        if not self._validate_match_parameters():
+            return None
         fields, nested_fields = self.fields
         field = fields[0] if fields else nested_fields[0]
         is_nested = isinstance(field, NestedField)
@@ -440,14 +444,17 @@ class RangeMatchDirective(MatchDirective):
 
     def _validate_match_parameters(self) -> None:
         if (
-            not self.values_map
-            or len(
-                set(["gt", "gte", "lt", "lte"]).intersection(
-                    self.values_map.keys()
-                )
+            len(
+                {
+                    key
+                    for key in ["gt", "gte", "lt", "lte"]
+                    if self.values_map and self.values_map.get(key) is not None
+                }
             )
             < 1
         ):
+            if self.nullable_value:
+                return False
             raise ValueError(
                 f"No compare value provided for: {type(self).__name__}"
             )
@@ -458,6 +465,7 @@ class RangeMatchDirective(MatchDirective):
             raise ValueError(
                 f"Exactly 1 field needed for {type(self).__name__}. Give: {field_lenght}"
             )
+        return True
 
 
 class ScriptMatchDirective(MatchDirective):

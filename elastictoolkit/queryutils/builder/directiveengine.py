@@ -13,8 +13,14 @@ from elastictoolkit.queryutils.builder.directivevaluemapper import (
 
 
 class DirectiveEngine:
+    class _DefaultConfig:
+        match_directive_config: t.Dict[str, t.Any] = {}
+
     class Config:
+        """`Config` class should be overriden in Sub-Class"""
+
         value_mapper: DirectiveValueMapper = None
+        match_directive_config: t.Dict[str, t.Any] = {}
 
     def __init__(self) -> None:
         self._match_params = None
@@ -35,7 +41,15 @@ class DirectiveEngine:
                 continue
 
             directive = directive.copy()
-            fields, values_list, values_map = [], [], {}
+
+            # Configure Directive
+            match_directive_config = (
+                getattr(self.Config, "match_directive_config", None)
+                or self._DefaultConfig.match_directive_config
+            )
+            directive.configure(**match_directive_config)
+
+            # Handle Custom Directives
             value_mapper = self.Config.value_mapper
             if isinstance(directive, CustomMatchDirective):
                 directive.validate_directive_engine(
@@ -45,6 +59,8 @@ class DirectiveEngine:
                 attr_key
             )
 
+            # Set dynamic parameters for query generation
+            fields, values_list, values_map = [], [], {}
             if attr_field_mapping:
                 fields, values_list, values_map = (
                     attr_field_mapping.fields,
@@ -52,8 +68,9 @@ class DirectiveEngine:
                     attr_field_mapping.values_map,
                 )
             directive.set_match_params(self.match_params)
-            # if fields: # TODO: Remove if not needed
             directive.set_field(*fields)
             directive.set_values(*values_list, **values_map)
+
+            # Generate Query
             directive.execute(bool_builder)
         return bool_builder.build()

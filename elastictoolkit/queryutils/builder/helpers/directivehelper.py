@@ -1,5 +1,17 @@
+from typing import Callable
+
+
 class DirectiveHelper:
     """Helper class for directives"""
+
+    @staticmethod
+    def unpacked(func: Callable):
+        """
+        Sets a property `unpack` to True. This signals `ValueParser` to unpack values
+        when appending items to list when calling this func.
+        """
+        func.unpack = True
+        return func
 
     @staticmethod
     def normalize_str(param: str):
