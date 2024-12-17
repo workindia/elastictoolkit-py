@@ -469,9 +469,16 @@ class RangeMatchDirective(MatchDirective):
 
 
 class ScriptMatchDirective(MatchDirective):
-    def __init__(self, script: str, mode=MatchMode.INCLUDE) -> None:
+    def __init__(
+        self,
+        script: str,
+        mode=MatchMode.INCLUDE,
+        mandatory_params_keys: t.List[str] = [],
+        nullable_value: bool = False,
+    ) -> None:
         self.script = script
-        super().__init__(mode, nullable_value=False)
+        self.mandatory_params_keys = mandatory_params_keys
+        super().__init__(mode, nullable_value=nullable_value)
 
     def copy(
         self,
@@ -479,9 +486,12 @@ class ScriptMatchDirective(MatchDirective):
         values: bool = False,
         match_params: bool = False,
     ) -> Self:
-        self_copy = self.__class__(self.script, self.mode).configure(
-            self.value_parser_config, self.and_query_op
-        )
+        self_copy = self.__class__(
+            self.script,
+            self.mode,
+            self.mandatory_params_keys,
+            self.nullable_value,
+        ).configure(self.value_parser_config, self.and_query_op)
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
         self_copy._values_map = self._values_map if values else None
@@ -501,4 +511,21 @@ class ScriptMatchDirective(MatchDirective):
         return [match_dsl_query] if match_dsl_query else []
 
     def _make_match_dsl_query(self) -> ScriptQuery:
+        if not self._validate_match_parameters():
+            return None
         return ScriptQuery(script=self.script, params=self.values_map or None)
+
+    def _validate_match_parameters(self):
+        missing_params = [
+            key
+            for key in self.mandatory_params_keys
+            if key not in self.values_map or self.values_map.get(key) is None
+        ]
+        if missing_params and not self.nullable_value:
+            raise ValueError(
+                f"Missing mandatory script parameters for {type(self).__name__}: {missing_params}."
+                "Mandatory params must be present and be non-null"
+            )
+        if missing_params:
+            return False
+        return True
