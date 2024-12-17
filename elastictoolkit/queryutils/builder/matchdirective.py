@@ -304,11 +304,20 @@ class ConstMatchDirective(MatchDirective):
         elif len(fields) == 1:
             if len(self.values_list) > 1:
                 if self.rule == FieldMatchType.ANY:
-                    return [TermsQuery(fields[0], self.values_list)]
+                    return [
+                        TermsQuery(
+                            fields[0], self.values_list, _name=self._name
+                        )
+                    ]
                 else:
-                    return [TermQuery(fields[0], v) for v in self.values_list]
+                    return [
+                        TermQuery(fields[0], v, _name=self._name)
+                        for v in self.values_list
+                    ]
             elif len(self.values_list) == 1:
-                return [TermQuery(fields[0], self.values_list[0])]
+                return [
+                    TermQuery(fields[0], self.values_list[0], _name=self._name)
+                ]
         return []
 
     def _get_nested_fields_queries(self) -> t.List[DSLQuery]:
@@ -393,8 +402,12 @@ class WaterfallFieldMatchDirective(ConstMatchDirective):
 
 class RangeMatchDirective(MatchDirective):
     def __init__(
-        self, mode=MatchMode.INCLUDE, nullable_value: bool = False
+        self,
+        mode=MatchMode.INCLUDE,
+        nullable_value: bool = False,
+        name: t.Optional[str] = None,
     ) -> None:
+        self.name = name
         super().__init__(mode, nullable_value)
 
     def copy(
@@ -403,9 +416,9 @@ class RangeMatchDirective(MatchDirective):
         values: bool = False,
         match_params: bool = False,
     ) -> Self:
-        self_copy = self.__class__(self.mode, self.nullable_value).configure(
-            self.value_parser_config, self.and_query_op
-        )
+        self_copy = self.__class__(
+            self.mode, self.nullable_value, self.name
+        ).configure(self.value_parser_config, self.and_query_op)
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
         self_copy._values_map = self._values_map if values else None
@@ -437,9 +450,12 @@ class RangeMatchDirective(MatchDirective):
             gt=self.values_map.get("gt"),
             lte=self.values_map.get("lte"),
             lt=self.values_map.get("lt"),
+            _name=self.name,
         )
         if is_nested:
-            query = NestedQuery(path=field.nested_path, query=query)
+            query = NestedQuery(
+                path=field.nested_path, query=query, _name=self.name
+            )
         return query
 
     def _validate_match_parameters(self) -> None:
@@ -475,9 +491,11 @@ class ScriptMatchDirective(MatchDirective):
         mode=MatchMode.INCLUDE,
         mandatory_params_keys: t.List[str] = [],
         nullable_value: bool = False,
+        name: t.Optional[str] = None,
     ) -> None:
         self.script = script
         self.mandatory_params_keys = mandatory_params_keys
+        self.name = name
         super().__init__(mode, nullable_value=nullable_value)
 
     def copy(
@@ -491,6 +509,7 @@ class ScriptMatchDirective(MatchDirective):
             self.mode,
             self.mandatory_params_keys,
             self.nullable_value,
+            self.name,
         ).configure(self.value_parser_config, self.and_query_op)
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
@@ -513,7 +532,9 @@ class ScriptMatchDirective(MatchDirective):
     def _make_match_dsl_query(self) -> ScriptQuery:
         if not self._validate_match_parameters():
             return None
-        return ScriptQuery(script=self.script, params=self.values_map or None)
+        return ScriptQuery(
+            script=self.script, params=self.values_map or None, _name=self.name
+        )
 
     def _validate_match_parameters(self):
         missing_params = [
