@@ -1,4 +1,5 @@
 import typing as t
+from typing_extensions import Self
 from elasticquerydsl.base import DSLQuery, BoolQuery
 from elasticquerydsl.utils import BooleanDSLBuilder
 
@@ -10,14 +11,14 @@ from elastictoolkit.queryutils.builder.directivevaluemapper import (
 
 
 class CustomMatchDirective(MatchDirective):
-    allowed_engine_cls = None
+    allowed_engine_cls_name = None
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # Ensure that each subclass defines `allowed_engine_cls` explicitly
-        if "allowed_engine_cls" not in cls.__dict__:
+        if "allowed_engine_cls_name" not in cls.__dict__:
             raise NotImplementedError(
-                f"Class {cls.__name__} must define its own `allowed_engine_cls`"
+                f"Class {cls.__name__} must define its own `allowed_engine_cls_name`"
             )
 
     def __init__(
@@ -29,15 +30,29 @@ class CustomMatchDirective(MatchDirective):
         self.directive_value_mapper = None
         self.directive_engine = None
 
+    def copy(
+        self,
+        fields: bool = False,
+        values: bool = False,
+        match_params: bool = False,
+    ) -> Self:
+        self_copy = self.__class__(
+            self.mode,
+            self.nullable_value,
+        ).set_directive_value_mapper(self.directive_value_mapper)
+        self_copy._match_params = self._match_params if match_params else None
+        self_copy.directive_engine = self.directive_engine
+        return self_copy
+
     def validate_directive_engine(self, directive_engine: t.Any):
         self._validate_directive_engine(directive_engine)
         self.directive_engine = directive_engine
         return self
 
     def _validate_directive_engine(self, directive_engine: t.Any):
-        if not isinstance(directive_engine, self.allowed_engine_cls):
+        if type(directive_engine).__name__ != self.allowed_engine_cls_name:
             raise TypeError(
-                f"Engine instance must be an instance of {self.allowed_engine_cls.__name__}"
+                f"Engine instance must be an instance of {self.allowed_engine_cls_name}"
             )
 
     def set_directive_value_mapper(

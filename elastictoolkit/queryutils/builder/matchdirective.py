@@ -1,9 +1,11 @@
 import copy
+from inspect import signature
 import logging
 import typing as t
 from typing_extensions import Self
 from elasticquerydsl.base import DSLQuery, BoolQuery
 from elasticquerydsl.filter import (
+    MatchQuery,
     MultiMatchQuery,
     NestedQuery,
     RangeQuery,
@@ -48,6 +50,7 @@ class MatchDirective:
         self._fields = None
         self._values_list = None
         self._values_map = None
+        self._match_query_kwargs = {}
 
     def configure(
         self,
@@ -74,6 +77,15 @@ class MatchDirective:
         self_copy._values_list = self._values_list if values else None
         self_copy._match_params = self._match_params if match_params else None
         return self_copy
+
+    def set_match_query_extra_args(self, **kwargs):
+        # When implementing in subclass, use Ellipsis (...) as default for all parameters:
+        #   def set_match_query_args(self, param1=..., param2=..., **kwargs):
+        #       ...
+        # This distinguishes between parameters not provided (...) vs explicitly set to None
+        update_args = {k: v for k, v in kwargs.items() if v is not ...}
+        self._match_query_kwargs.update(update_args)
+        return self
 
     def set_field(self, *fields: t.Union[str, NestedField]):
         self._fields = fields
@@ -175,6 +187,28 @@ class MatchDirective:
         """
         return []
 
+    def _generate_dsl_query(self, dsl_cls: t.Type[DSLQuery], **kwargs):
+        """
+        Generate a DSL query instance by filtering out unsupported parameters.
+
+        Args:
+            dsl_cls: The DSL query class to instantiate
+            **kwargs: Parameters to pass to the DSL query constructor
+
+        Returns:
+            An instance of the specified DSL query class
+        """
+        # Get the constructor parameters for the DSL class
+        valid_params = signature(dsl_cls.__init__).parameters.keys()
+
+        filtered_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in valid_params and v is not None
+        }
+
+        return dsl_cls(**filtered_kwargs)
+
 
 class ConstMatchDirective(MatchDirective):
     def __init__(
@@ -196,9 +230,13 @@ class ConstMatchDirective(MatchDirective):
         values: bool = False,
         match_params: bool = False,
     ) -> Self:
-        self_copy = self.__class__(
-            self.rule, self.mode, self.nullable_value, self._name
-        ).configure(self.value_parser_config, self.and_query_op)
+        self_copy = (
+            self.__class__(
+                self.rule, self.mode, self.nullable_value, self._name
+            )
+            .configure(self.value_parser_config, self.and_query_op)
+            .set_match_query_extra_args(**self._match_query_kwargs)
+        )
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
         self_copy._match_params = self._match_params if match_params else None
@@ -288,28 +326,43 @@ class ConstMatchDirective(MatchDirective):
 
     def _get_fields_queries(self) -> t.List[DSLQuery]:
         fields, _ = self.fields
+        if not fields:
+            return []
 
         if len(fields) > 1:
+            return self._get_multi_field_queries(fields)
+
+        return self._get_single_field_queries(fields[0])
+
+    def _get_multi_field_queries(
+        self, fields: t.List[str]
+    ) -> t.List[DSLQuery]:
+        if self.rule == FieldMatchType.ANY:
+            return [
+                MultiMatchQuery(
+                    " ".join(self.values_list), fields, _name=self._name
+                )
+            ]
+
+        return [
+            MultiMatchQuery(value, fields, _name=self._name)
+            for value in self.values_list
+        ]
+
+    def _get_single_field_queries(self, field: str) -> t.List[DSLQuery]:
+        if not self.values_list:
+            return []
+        if len(self.values_list) > 1:
             if self.rule == FieldMatchType.ANY:
-                return [
-                    MultiMatchQuery(
-                        " ".join(self.values_list), fields, _name=self._name
-                    )
-                ]
-            else:
-                return [
-                    MultiMatchQuery(v, fields, _name=self._name)
-                    for v in self.values_list
-                ]
-        elif len(fields) == 1:
-            if len(self.values_list) > 1:
-                if self.rule == FieldMatchType.ANY:
-                    return [TermsQuery(fields[0], self.values_list)]
-                else:
-                    return [TermQuery(fields[0], v) for v in self.values_list]
-            elif len(self.values_list) == 1:
-                return [TermQuery(fields[0], self.values_list[0])]
-        return []
+                # Use terms query for multiple values
+                return [TermsQuery(field, self.values_list, _name=self._name)]
+
+            return [
+                TermQuery(field, value, _name=self._name)
+                for value in self.values_list
+            ]
+
+        return [TermQuery(field, self.values_list[0], _name=self._name)]
 
     def _get_nested_fields_queries(self) -> t.List[DSLQuery]:
         _, nested_fields = self.fields
@@ -343,14 +396,18 @@ class WaterfallFieldMatchDirective(ConstMatchDirective):
         values: bool = False,
         match_params: bool = False,
     ) -> Self:
-        self_copy = self.__class__(
-            self.rule,
-            self.waterfall_order,
-            self.op,
-            self.mode,
-            self.nullable_value,
-            self._name,
-        ).configure(self.value_parser_config, self.and_query_op)
+        self_copy = (
+            self.__class__(
+                self.rule,
+                self.waterfall_order,
+                self.op,
+                self.mode,
+                self.nullable_value,
+                self._name,
+            )
+            .configure(self.value_parser_config, self.and_query_op)
+            .set_match_query_extra_args(**self._match_query_kwargs)
+        )
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
         self_copy._match_params = self._match_params if match_params else None
@@ -391,10 +448,105 @@ class WaterfallFieldMatchDirective(ConstMatchDirective):
         return self.waterfall_order[start_idx:end_idx]
 
 
+class TextMatchDirective(ConstMatchDirective):
+    def set_match_query_extra_args(
+        self,
+        operator: t.Optional[str] = ...,
+        minimum_should_match: t.Optional[t.Union[str, int]] = ...,
+        fuzziness: t.Optional[t.Union[str, int]] = ...,
+        prefix_length: t.Optional[int] = ...,
+        max_expansions: t.Optional[int] = ...,
+        analyzer: t.Optional[str] = ...,
+        auto_generate_synonyms_phrase_query: t.Optional[bool] = ...,
+        **kwargs,
+    ):
+        """
+        Updates the ES Match/MultiMatch DSLQuery Args
+
+        :param operator: Optional, operator to use for the query ('and' or 'or'). [default: 'or']
+        :param minimum_should_match: Optional, minimum number of clauses that must match. [default: None]
+        :param fuzziness: Optional, defines the fuzziness (e.g., 'AUTO', 1, 2). [default: None]
+        :param prefix_length: Optional, length of the prefix to apply fuzziness. [default: 0]
+        :param max_expansions: Optional, maximum number of terms to expand the query to. [default: 50]
+        :param analyzer: Optional, analyzer to use for the query string. [default: None]
+        :param auto_generate_synonyms_phrase_query: Optional, whether to automatically generate synonyms phrases. [default: True]
+        """
+        return super().set_match_query_extra_args(
+            operator=operator,
+            minimum_should_match=minimum_should_match,
+            fuzziness=fuzziness,
+            prefix_length=prefix_length,
+            max_expansions=max_expansions,
+            analyzer=analyzer,
+            auto_generate_synonyms_phrase_query=auto_generate_synonyms_phrase_query,
+            **kwargs,
+        )
+
+    def _get_fields_queries(self) -> t.List[DSLQuery]:
+        fields, _ = self.fields
+
+        if not fields:
+            return []
+
+        if len(fields) > 1:
+            return self._get_multi_field_queries(fields)
+
+        return self._get_single_field_queries(fields[0])
+
+    def _get_multi_field_queries(
+        self, fields: t.List[str]
+    ) -> t.List[DSLQuery]:
+        return [
+            self._generate_dsl_query(
+                MultiMatchQuery,
+                query=v,
+                fields=fields,
+                _name=self._name,
+                **self._match_query_kwargs,
+            )
+            for v in self.values_list
+        ]
+
+    def _get_single_field_queries(self, field: str) -> t.List[DSLQuery]:
+        if not self.values_list:
+            return []
+
+        return [
+            self._generate_dsl_query(
+                MatchQuery,
+                field=field,
+                value=v,
+                _name=self._name,
+                **self._match_query_kwargs,
+            )
+            for v in self.values_list
+        ]
+
+    def _get_nested_fields_queries(self) -> t.List[DSLQuery]:
+        _, nested_fields = self.fields
+        return [
+            NestedQuery(
+                path=field.nested_path,
+                query=self._generate_dsl_query(
+                    MatchQuery,
+                    field=field.field_name,
+                    value=v,
+                    **self._match_query_kwargs,
+                ),
+            )
+            for field in nested_fields
+            for v in self.values_list
+        ]
+
+
 class RangeMatchDirective(MatchDirective):
     def __init__(
-        self, mode=MatchMode.INCLUDE, nullable_value: bool = False
+        self,
+        mode=MatchMode.INCLUDE,
+        nullable_value: bool = False,
+        name: t.Optional[str] = None,
     ) -> None:
+        self.name = name
         super().__init__(mode, nullable_value)
 
     def copy(
@@ -403,8 +555,10 @@ class RangeMatchDirective(MatchDirective):
         values: bool = False,
         match_params: bool = False,
     ) -> Self:
-        self_copy = self.__class__(self.mode, self.nullable_value).configure(
-            self.value_parser_config, self.and_query_op
+        self_copy = (
+            self.__class__(self.mode, self.nullable_value, self.name)
+            .configure(self.value_parser_config, self.and_query_op)
+            .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
@@ -437,9 +591,12 @@ class RangeMatchDirective(MatchDirective):
             gt=self.values_map.get("gt"),
             lte=self.values_map.get("lte"),
             lt=self.values_map.get("lt"),
+            _name=self.name,
         )
         if is_nested:
-            query = NestedQuery(path=field.nested_path, query=query)
+            query = NestedQuery(
+                path=field.nested_path, query=query, _name=self.name
+            )
         return query
 
     def _validate_match_parameters(self) -> None:
@@ -469,9 +626,18 @@ class RangeMatchDirective(MatchDirective):
 
 
 class ScriptMatchDirective(MatchDirective):
-    def __init__(self, script: str, mode=MatchMode.INCLUDE) -> None:
+    def __init__(
+        self,
+        script: str,
+        mode=MatchMode.INCLUDE,
+        mandatory_params_keys: t.List[str] = [],
+        nullable_value: bool = False,
+        name: t.Optional[str] = None,
+    ) -> None:
         self.script = script
-        super().__init__(mode, nullable_value=False)
+        self.mandatory_params_keys = mandatory_params_keys
+        self.name = name
+        super().__init__(mode, nullable_value=nullable_value)
 
     def copy(
         self,
@@ -479,8 +645,16 @@ class ScriptMatchDirective(MatchDirective):
         values: bool = False,
         match_params: bool = False,
     ) -> Self:
-        self_copy = self.__class__(self.script, self.mode).configure(
-            self.value_parser_config, self.and_query_op
+        self_copy = (
+            self.__class__(
+                self.script,
+                self.mode,
+                self.mandatory_params_keys,
+                self.nullable_value,
+                self.name,
+            )
+            .configure(self.value_parser_config, self.and_query_op)
+            .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
@@ -501,4 +675,23 @@ class ScriptMatchDirective(MatchDirective):
         return [match_dsl_query] if match_dsl_query else []
 
     def _make_match_dsl_query(self) -> ScriptQuery:
-        return ScriptQuery(script=self.script, params=self.values_map or None)
+        if not self._validate_match_parameters():
+            return None
+        return ScriptQuery(
+            script=self.script, params=self.values_map or None, _name=self.name
+        )
+
+    def _validate_match_parameters(self):
+        missing_params = [
+            key
+            for key in self.mandatory_params_keys
+            if key not in self.values_map or self.values_map.get(key) is None
+        ]
+        if missing_params and not self.nullable_value:
+            raise ValueError(
+                f"Missing mandatory script parameters for {type(self).__name__}: {missing_params}."
+                "Mandatory params must be present and be non-null"
+            )
+        if missing_params:
+            return False
+        return True
