@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 from pydantic import BaseModel
 
 
@@ -8,6 +8,6 @@ class NestedField(BaseModel):
 
 
 class FieldValue(BaseModel):
-    fields: List[str] = []
+    fields: List[Union[str, NestedField]] = []
     values_map: Dict[str, Any] = {}
     values_list: List[Any] = []

@@ -326,37 +326,43 @@ class ConstMatchDirective(MatchDirective):
 
     def _get_fields_queries(self) -> t.List[DSLQuery]:
         fields, _ = self.fields
+        if not fields:
+            return []
 
         if len(fields) > 1:
+            return self._get_multi_field_queries(fields)
+
+        return self._get_single_field_queries(fields[0])
+
+    def _get_multi_field_queries(
+        self, fields: t.List[str]
+    ) -> t.List[DSLQuery]:
+        if self.rule == FieldMatchType.ANY:
+            return [
+                MultiMatchQuery(
+                    " ".join(self.values_list), fields, _name=self._name
+                )
+            ]
+
+        return [
+            MultiMatchQuery(value, fields, _name=self._name)
+            for value in self.values_list
+        ]
+
+    def _get_single_field_queries(self, field: str) -> t.List[DSLQuery]:
+        if not self.values_list:
+            return []
+        if len(self.values_list) > 1:
             if self.rule == FieldMatchType.ANY:
-                return [
-                    MultiMatchQuery(
-                        " ".join(self.values_list), fields, _name=self._name
-                    )
-                ]
-            else:
-                return [
-                    MultiMatchQuery(v, fields, _name=self._name)
-                    for v in self.values_list
-                ]
-        elif len(fields) == 1:
-            if len(self.values_list) > 1:
-                if self.rule == FieldMatchType.ANY:
-                    return [
-                        TermsQuery(
-                            fields[0], self.values_list, _name=self._name
-                        )
-                    ]
-                else:
-                    return [
-                        TermQuery(fields[0], v, _name=self._name)
-                        for v in self.values_list
-                    ]
-            elif len(self.values_list) == 1:
-                return [
-                    TermQuery(fields[0], self.values_list[0], _name=self._name)
-                ]
-        return []
+                # Use terms query for multiple values
+                return [TermsQuery(field, self.values_list, _name=self._name)]
+
+            return [
+                TermQuery(field, value, _name=self._name)
+                for value in self.values_list
+            ]
+
+        return [TermQuery(field, self.values_list[0], _name=self._name)]
 
     def _get_nested_fields_queries(self) -> t.List[DSLQuery]:
         _, nested_fields = self.fields
@@ -463,7 +469,6 @@ class TextMatchDirective(ConstMatchDirective):
         :param prefix_length: Optional, length of the prefix to apply fuzziness. [default: 0]
         :param max_expansions: Optional, maximum number of terms to expand the query to. [default: 50]
         :param analyzer: Optional, analyzer to use for the query string. [default: None]
-        :param boost: Optional, boost value for the query. [default: 1.0]
         :param auto_generate_synonyms_phrase_query: Optional, whether to automatically generate synonyms phrases. [default: True]
         """
         return super().set_match_query_extra_args(
@@ -491,18 +496,6 @@ class TextMatchDirective(ConstMatchDirective):
     def _get_multi_field_queries(
         self, fields: t.List[str]
     ) -> t.List[DSLQuery]:
-        if self.rule == FieldMatchType.ANY:
-            # TODO: Check if this will work for values with multiple spaces and exact match is needed of the whole value
-            return [
-                self._generate_dsl_query(
-                    MultiMatchQuery,
-                    query=" ".join(self.values_list),
-                    fields=fields,
-                    _name=self._name,
-                    **self._match_query_kwargs,
-                )
-            ]
-
         return [
             self._generate_dsl_query(
                 MultiMatchQuery,
@@ -537,7 +530,7 @@ class TextMatchDirective(ConstMatchDirective):
                 query=self._generate_dsl_query(
                     MatchQuery,
                     field=field.field_name,
-                    query=v,
+                    value=v,
                     **self._match_query_kwargs,
                 ),
             )
