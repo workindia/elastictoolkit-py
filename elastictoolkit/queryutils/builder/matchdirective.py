@@ -159,9 +159,23 @@ class MatchDirective:
         bool_builder.add_must_not_query(*self._get_bool_must_not_queries())
         bool_builder.add_filter_query(*self._get_bool_filter_queries())
 
-    def to_dsl(self) -> BoolQuery:
+    def to_dsl(self, nullable: bool = False) -> t.Optional[BoolQuery]:
+        """
+        Generates Boolean DSL query for the MatchDirective
+
+        Args:
+            nullable (bool, optional): Whether an empty query can be expected. Defaults to False.
+            Exception will be raised if trying to generate an empty boolean query if this is not set to `True`
+
+        Returns:
+            BoolQuery: The constructed boolean query combining all the directive's clauses.
+        """
         builder = BooleanDSLBuilder()
         self.execute(builder)
+        if nullable and not any(
+            (builder.should, builder.filter, builder.must, builder.must_not)
+        ):
+            return None
         return builder.build()
 
     def _get_bool_should_queries(self) -> t.List[DSLQuery]:
@@ -260,11 +274,11 @@ class ConstMatchDirective(MatchDirective):
     def _make_match_dsl_query(self) -> t.Optional[DSLQuery]:
         self._validate_match_parameters()
 
-        not_exists_query = self._collect_not_exists_query()
         match_queries = self._collect_match_queries()
-
-        if not match_queries and not not_exists_query:
+        if not match_queries:
             return None
+
+        not_exists_query = self._collect_not_exists_query()
 
         if len(match_queries) == 1 and not not_exists_query:
             return match_queries[0]  # No need to build a Bool Query
@@ -280,6 +294,8 @@ class ConstMatchDirective(MatchDirective):
             raise ValueError(f"No match field set for {type(self).__name__}")
 
     def _collect_match_queries(self) -> t.List[DSLQuery]:
+        if not self.values_list:
+            return []
         match_queries = []
         match_queries.extend(self._get_fields_queries())
         match_queries.extend(self._get_nested_fields_queries())
@@ -350,8 +366,6 @@ class ConstMatchDirective(MatchDirective):
         ]
 
     def _get_single_field_queries(self, field: str) -> t.List[DSLQuery]:
-        if not self.values_list:
-            return []
         if len(self.values_list) > 1:
             if self.rule == FieldMatchType.ANY:
                 # Use terms query for multiple values
@@ -481,17 +495,6 @@ class TextMatchDirective(ConstMatchDirective):
             auto_generate_synonyms_phrase_query=auto_generate_synonyms_phrase_query,
             **kwargs,
         )
-
-    def _get_fields_queries(self) -> t.List[DSLQuery]:
-        fields, _ = self.fields
-
-        if not fields:
-            return []
-
-        if len(fields) > 1:
-            return self._get_multi_field_queries(fields)
-
-        return self._get_single_field_queries(fields[0])
 
     def _get_multi_field_queries(
         self, fields: t.List[str]
