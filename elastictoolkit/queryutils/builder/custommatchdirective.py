@@ -61,13 +61,15 @@ class CustomMatchDirective(MatchDirective):
         self.directive_value_mapper = directive_value_mapper
         return self
 
-    def get_directive(self) -> "BoolDirective":
+    def get_directive(self) -> t.Optional["BoolDirective"]:
         raise NotImplementedError(
             f"`get_directives` method is not implemented in {self.__class__.__name__}"
         )
 
-    def _get_custom_directive_query(self) -> BoolQuery:
+    def _get_custom_directive_query(self) -> t.Optional[BoolQuery]:
         bool_directive = self.get_directive()
+        if not bool_directive:
+            return None
         bool_directive.set_match_params(self._match_params)
         bool_directive.configure(
             self.directive_value_mapper, self.and_query_op
@@ -77,12 +79,14 @@ class CustomMatchDirective(MatchDirective):
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
         if self.mode != MatchMode.INCLUDE:
             return []
-        return [self._get_custom_directive_query()]
+        query = self._get_custom_directive_query()
+        return [query] if query else []
 
     def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:
         if self.mode != MatchMode.EXCLUDE:
             return []
-        return [self._get_custom_directive_query()]
+        query = self._get_custom_directive_query()
+        return [query] if query else []
 
 
 class BoolDirective:
@@ -153,15 +157,21 @@ class BoolDirective:
             attr_field_mapping = self.directive_value_mapper.get_field_value(
                 attr_key
             )
+            fields, values_list, values_map = [], [], {}
             if attr_field_mapping:
                 fields, values_list, values_map = (
                     attr_field_mapping.fields,
                     attr_field_mapping.values_list,
                     attr_field_mapping.values_map,
                 )
-            directive = directive.copy()
+            # If no field/value mapping exists then user might have set the params while declaring directive
+            # In that case copy the params
+            copy_fields = bool(not fields)
+            copy_values = bool(not values_list and not values_map)
+            directive = directive.copy(fields=copy_fields, values=copy_values)
             directive.set_match_params(self._match_params)
-            directive.set_values(*values_list, **values_map)
+            if values_list or values_map:
+                directive.set_values(*values_list, **values_map)
             if fields:
                 directive.set_field(*fields)
             match_queries.append(directive.to_dsl())
