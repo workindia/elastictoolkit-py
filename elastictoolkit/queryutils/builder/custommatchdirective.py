@@ -174,7 +174,9 @@ class BoolDirective:
                 directive.set_values(*values_list, **values_map)
             if fields:
                 directive.set_field(*fields)
-            match_queries.append(directive.to_dsl())
+            directive_dsl = directive.to_dsl(nullable=True)
+            if directive_dsl:
+                match_queries.append(directive_dsl)
         return match_queries
 
 

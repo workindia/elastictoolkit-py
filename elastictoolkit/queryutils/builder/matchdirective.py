@@ -159,9 +159,23 @@ class MatchDirective:
         bool_builder.add_must_not_query(*self._get_bool_must_not_queries())
         bool_builder.add_filter_query(*self._get_bool_filter_queries())
 
-    def to_dsl(self) -> BoolQuery:
+    def to_dsl(self, nullable: bool = False) -> t.Optional[BoolQuery]:
+        """
+        Generates Boolean DSL query for the MatchDirective
+
+        Args:
+            nullable (bool, optional): Whether an empty query can be expected. Defaults to False.
+            Exception will be raised if trying to generate an empty boolean query if this is not set to `True`
+
+        Returns:
+            BoolQuery: The constructed boolean query combining all the directive's clauses.
+        """
         builder = BooleanDSLBuilder()
         self.execute(builder)
+        if nullable and not any(
+            (builder.should, builder.filter, builder.must, builder.must_not)
+        ):
+            return None
         return builder.build()
 
     def _get_bool_should_queries(self) -> t.List[DSLQuery]:
