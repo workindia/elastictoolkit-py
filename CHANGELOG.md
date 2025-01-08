@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## 0.3.1 (2025-01-08)
+### Changed
+- Enabled field/value copy for explicit declarations in CustomMatchDirective
+- Added null check for empty query generations inside BoolDirective
+### Fixed
+- Empty-string value query for multi-field match
+
+
+
 ## 0.3.0 (2024-12-20)
 ### Changed
 - `allowed_engine_cls` to `allowed_engine_cls_name` for class name based validation in `CustomMatchDirective`
