@@ -353,13 +353,6 @@ class ConstMatchDirective(MatchDirective):
     def _get_multi_field_queries(
         self, fields: t.List[str]
     ) -> t.List[DSLQuery]:
-        if self.rule == FieldMatchType.ANY:
-            return [
-                MultiMatchQuery(
-                    " ".join(self.values_list), fields, _name=self._name
-                )
-            ]
-
         return [
             MultiMatchQuery(value, fields, _name=self._name)
             for value in self.values_list
@@ -383,7 +376,11 @@ class ConstMatchDirective(MatchDirective):
         return [
             NestedQuery(
                 path=field.nested_path,
-                query=TermQuery(f"{field.field_name}", v),
+                query=TermQuery(
+                    f"{field.nested_path}.{field.field_name}",
+                    v,
+                    _name=self._name,
+                ),
             )
             for field in nested_fields
             for v in self.values_list
@@ -532,7 +529,7 @@ class TextMatchDirective(ConstMatchDirective):
                 path=field.nested_path,
                 query=self._generate_dsl_query(
                     MatchQuery,
-                    field=field.field_name,
+                    field=f"{field.nested_path}.{field.field_name}",
                     value=v,
                     **self._match_query_kwargs,
                 ),
@@ -587,7 +584,9 @@ class RangeMatchDirective(MatchDirective):
         fields, nested_fields = self.fields
         field = fields[0] if fields else nested_fields[0]
         is_nested = isinstance(field, NestedField)
-        field_name = field.field_name if is_nested else field
+        field_name = (
+            f"{field.nested_path}.{field.field_name}" if is_nested else field
+        )
         query = RangeQuery(
             field_name,
             gte=self.values_map.get("gte"),
@@ -680,15 +679,16 @@ class ScriptMatchDirective(MatchDirective):
     def _make_match_dsl_query(self) -> ScriptQuery:
         if not self._validate_match_parameters():
             return None
+        values_map = self.values_map if self._values_map is not None else {}
         return ScriptQuery(
-            script=self.script, params=self.values_map or None, _name=self.name
+            script=self.script, params=values_map or None, _name=self.name
         )
 
     def _validate_match_parameters(self):
         missing_params = [
             key
             for key in self.mandatory_params_keys
-            if key not in self.values_map or self.values_map.get(key) is None
+            if self.values_map.get(key) is None
         ]
         if missing_params and not self.nullable_value:
             raise ValueError(
