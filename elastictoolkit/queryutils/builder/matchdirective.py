@@ -16,6 +16,7 @@ from elasticquerydsl.filter import (
 )
 from elasticquerydsl.utils import BooleanDSLBuilder
 
+from elastictoolkit.queryutils.builder.base import BaseDirective
 from elastictoolkit.queryutils.types import NestedField
 from elastictoolkit.queryutils.consts import (
     AndQueryOp,
@@ -23,25 +24,16 @@ from elastictoolkit.queryutils.consts import (
     FieldMatchType,
     WaterFallMatchOp,
 )
-
-from elastictoolkit.queryutils.builder.helpers.valueparser import (
-    ValueParser,
-    RuntimeValueParser,
-)
+from elastictoolkit.queryutils.builder.helpers.valueparser import ValueParser
 
 logger = logging.getLogger(__name__)
 
 
-class MatchDirective:
-    value_parser_config: t.Dict[str, t.Any] = {
-        "parser_cls": RuntimeValueParser,
-        "prefix": "match_params",
-    }
-    and_query_op: AndQueryOp = AndQueryOp.FILTER
-
+class MatchDirective(BaseDirective):
     def __init__(
         self, mode=MatchMode.INCLUDE, nullable_value: bool = False
     ) -> None:
+        super().__init__()
         self.mode = mode
         self.nullable_value = nullable_value
         self.es_query_params = {}
@@ -51,17 +43,6 @@ class MatchDirective:
         self._values_list = None
         self._values_map = None
         self._match_query_kwargs = {}
-
-    def configure(
-        self,
-        value_parser_config: t.Dict[str, t.Any] = None,
-        and_query_op: AndQueryOp = None,
-    ):
-        self.value_parser_config = (
-            value_parser_config or self.value_parser_config
-        )
-        self.and_query_op = and_query_op if and_query_op else self.and_query_op
-        return self
 
     def copy(
         self,
@@ -141,13 +122,13 @@ class MatchDirective:
         return self._values_map_parsed
 
     def get_value_parser(self) -> ValueParser:
-        parser_cls = self.value_parser_config.get("parser_cls")
+        parser_cls = self._value_parser_config.get("parser_cls")
         if not parser_cls:
             raise ValueError(
                 f"Value parser class not set for {type(self).__name__}"
             )
         parser_kwargs = {"data": self.match_params}
-        for k, v in self.value_parser_config.items():
+        for k, v in self._value_parser_config.items():
             if k != "parser_cls":
                 parser_kwargs[k] = v
         parser = parser_cls(**parser_kwargs)
@@ -182,7 +163,7 @@ class MatchDirective:
         return []
 
     def _get_bool_must_queries(self) -> t.List[DSLQuery]:
-        if self.and_query_op != AndQueryOp.MUST:
+        if self._and_query_op != AndQueryOp.MUST:
             return []
         return self._get_bool_and_queries()
 
@@ -190,7 +171,7 @@ class MatchDirective:
         return []
 
     def _get_bool_filter_queries(self) -> t.List[DSLQuery]:
-        if self.and_query_op != AndQueryOp.FILTER:
+        if self._and_query_op != AndQueryOp.FILTER:
             return []
         return self._get_bool_and_queries()
 
@@ -248,7 +229,7 @@ class ConstMatchDirective(MatchDirective):
             self.__class__(
                 self.rule, self.mode, self.nullable_value, self._name
             )
-            .configure(self.value_parser_config, self.and_query_op)
+            .configure(self._value_parser_config, self._and_query_op)
             .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
@@ -416,7 +397,7 @@ class WaterfallFieldMatchDirective(ConstMatchDirective):
                 self.nullable_value,
                 self._name,
             )
-            .configure(self.value_parser_config, self.and_query_op)
+            .configure(self._value_parser_config, self._and_query_op)
             .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
@@ -557,7 +538,7 @@ class RangeMatchDirective(MatchDirective):
     ) -> Self:
         self_copy = (
             self.__class__(self.mode, self.nullable_value, self.name)
-            .configure(self.value_parser_config, self.and_query_op)
+            .configure(self._value_parser_config, self._and_query_op)
             .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
@@ -655,7 +636,7 @@ class ScriptMatchDirective(MatchDirective):
                 self.nullable_value,
                 self.name,
             )
-            .configure(self.value_parser_config, self.and_query_op)
+            .configure(self._value_parser_config, self._and_query_op)
             .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
@@ -677,23 +658,26 @@ class ScriptMatchDirective(MatchDirective):
         return [match_dsl_query] if match_dsl_query else []
 
     def _make_match_dsl_query(self) -> ScriptQuery:
-        if not self._validate_match_parameters():
+        if not self._validate_script_parameters():
             return None
         values_map = self.values_map if self._values_map is not None else {}
         return ScriptQuery(
             script=self.script, params=values_map or None, _name=self.name
         )
 
-    def _validate_match_parameters(self):
-        missing_params = [
-            key
-            for key in self.mandatory_params_keys
-            if self.values_map.get(key) is None
-        ]
+    def _validate_script_parameters(self):
+        if self._values_map is None:
+            missing_params = self.mandatory_params_keys
+        else:
+            missing_params = [
+                key
+                for key in self.mandatory_params_keys
+                if self.values_map.get(key) is None
+            ]
         if missing_params and not self.nullable_value:
             raise ValueError(
-                f"Missing mandatory script parameters for {type(self).__name__}: {missing_params}."
-                "Mandatory params must be present and be non-null"
+                f"Missing mandatory script parameters for {type(self).__name__}: {missing_params}"
+                "| Mandatory params must be present and be non-null"
             )
         if missing_params:
             return False
