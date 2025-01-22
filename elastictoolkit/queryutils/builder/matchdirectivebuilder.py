@@ -72,7 +72,7 @@ class MatchDirectiveBuilder:
     ) -> None:
         directive.configure(**self._match_directive_config)
 
-        if self._match_params:
+        if isinstance(self._match_params, dict):  # Empty dict is allowed
             directive.set_match_params(self._match_params)
         if values_list or values_map:
             directive.set_values(*values_list, **values_map)

@@ -90,7 +90,7 @@ class MatchDirective(BaseDirective):
     def match_params(self):
         if self._match_params is None:
             raise ValueError(
-                f"{type(self).__name__} directive requires: `match_params`. This must be set using `set_value_map` method."
+                f"{type(self).__name__} directive requires: `match_params`. This must be set using `set_match_params` method."
             )
         return self._match_params
 

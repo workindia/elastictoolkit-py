@@ -1,8 +1,13 @@
 import json
 import pytest
-from typing import Any, Dict, List, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
+
+from elasticquerydsl.base import DSLQuery
 
 from elastictoolkit.queryutils.builder.directiveengine import DirectiveEngine
+from elastictoolkit.queryutils.builder.functionscoreengine import (
+    FunctionScoreEngine,
+)
 from elastictoolkit.queryutils.builder.matchdirective import MatchDirective
 from elastictoolkit.queryutils.types import NestedField
 
@@ -24,7 +29,6 @@ class MatchDirectiveBaseTest:
         expected_query (Dict[str, Any]): Expected query output
     """
 
-    description: str = ""
     match_directive: MatchDirective
     fields: List[Union[str, NestedField]] = []
     values_list: List[Any] = []
@@ -106,6 +110,14 @@ class MatchDirectiveBaseTest:
             raise NotImplementedError("expected_query must be set in subclass")
         return self.expected_query
 
+    @pytest.fixture
+    def _allowed_exc_cls(self) -> Exception:
+        return self.allowed_exc_cls
+
+    @pytest.fixture
+    def _exc_message(self) -> str:
+        return self.exc_message
+
     def test_query_generation(
         self,
         _match_directive: MatchDirective,
@@ -114,6 +126,8 @@ class MatchDirectiveBaseTest:
         _values_map: Dict[str, Any],
         _match_params: Dict[str, Any],
         _expected_query: Dict[str, Any],
+        _allowed_exc_cls: Exception,
+        _exc_message: str,
     ):
         """
         Test that the generated query matches the expected output.
@@ -138,14 +152,16 @@ class MatchDirectiveBaseTest:
 
         try:
             dsl = _match_directive.to_dsl(nullable=True)
+            if self.allowed_exc_cls:
+                pytest.fail(
+                    f"Expected exception {self.allowed_exc_cls.__name__} was not raised"
+                )
         except Exception as e:
-            return self.validate_exc(e)
+            return self._validate_exc(e, _allowed_exc_cls, _exc_message)
 
         generated_query = None
         if dsl:
             generated_query = dsl.to_query()
-        # TODO: Remove
-        print(type(self).__name__, ":", generated_query)
 
         test_case_info = (
             type(self).__name__ + f" | Description: {self.__doc__}"
@@ -159,94 +175,190 @@ class MatchDirectiveBaseTest:
             f"Expected: {json.dumps(_expected_query)}"
         )
 
-    def validate_exc(self, exc: Exception):
-        if not self.allowed_exc_cls:
+    def _validate_exc(
+        self,
+        exc: Exception,
+        allowed_exc_cls: Optional[Exception],
+        exc_message: str,
+    ):
+        if not allowed_exc_cls:
             raise exc
-        assert isinstance(exc, self.allowed_exc_cls), (
+        assert isinstance(exc, allowed_exc_cls), (
             "Raise exception did not match allowed_exc\n",
             f"Raised Exc: {type(exc).__name__}\n",
-            f"Allowed Exc: {self.allowed_exc_cls.__name__}\n",
+            f"Allowed Exc: {allowed_exc_cls.__name__}\n",
         )
-        if self.exc_message:
-            assert self.exc_message.lower() in str(exc).lower(), (
+        if exc_message:
+            assert exc_message.lower() in str(exc).lower(), (
                 f"Exception message did not match\n"
-                f"Expected message: {self.exc_message}\n"
+                f"Expected message: {exc_message}\n"
                 f"Actual message: {str(exc)}"
             )
 
 
-class QueryBuilderBaseTest:
+class DirectiveEngineBaseTest:
     """
-    Base test class for testing complete query builders.
+    Base test class for testing DirectiveEngine implementations.
 
-    This class provides a framework for testing directive engines that combine
-    multiple match directives. Subclasses should implement the required fixtures.
+    This class provides a framework for testing directive engines with various
+    match directives and configurations.
+
+    Class Attributes:
+        description (str): Test case description
+        engine_cls (Type[DirectiveEngine]): DirectiveEngine class to test
+        match_params (Dict[str, Any]): Input parameters for the query
+        expected_query (Dict[str, Any]): Expected query output
+        expected_exc_cls (Optional[Type[Exception]]): Expected exception class
+        exc_message (str): Expected exception message
     """
 
-    @pytest.fixture
-    def directive_engine(self) -> Type[DirectiveEngine]:
-        """
-        Fixture that provides the DirectiveEngine class to test.
-
-        Returns:
-            Type[DirectiveEngine]: The engine class to test
-
-        Raises:
-            NotImplementedError: If not implemented in subclass
-        """
-        raise NotImplementedError(
-            "directive_engine fixture must be implemented in subclass"
-        )
+    description: str = ""
+    engine_cls: Type[DirectiveEngine] = None
+    match_params: Dict[str, Any] = {}
+    expected_query: Dict[str, Any] = None
+    expected_exc_cls: Optional[Type[Exception]] = None
+    exc_message: str = ""
 
     @pytest.fixture
-    def match_params(self) -> Dict[str, Any]:
-        """
-        Fixture that provides match parameters for the test.
-
-        Returns:
-            Dict[str, Any]: Dictionary of match parameters
-
-        Raises:
-            NotImplementedError: If not implemented in subclass
-        """
-        raise NotImplementedError(
-            "match_params fixture must be implemented in subclass"
-        )
+    def _engine_cls(self) -> Type[DirectiveEngine]:
+        return self.engine_cls
 
     @pytest.fixture
-    def expected_query(self) -> Dict[str, Any]:
-        """
-        Fixture that provides the expected query output.
+    def _match_params(self) -> Dict[str, Any]:
+        return self.match_params
 
-        Returns:
-            Dict[str, Any]: Expected query structure
+    @pytest.fixture
+    def _expected_query(self) -> Dict[str, Any]:
+        return self.expected_query
 
-        Raises:
-            NotImplementedError: If not implemented in subclass
-        """
-        raise NotImplementedError(
-            "expected_query fixture must be implemented in subclass"
-        )
+    @pytest.fixture
+    def _expected_exc_cls(self) -> Optional[Type[Exception]]:
+        return self.expected_exc_cls
 
-    def test_query_generation(
+    @pytest.fixture
+    def _exc_message(self) -> str:
+        return self.exc_message
+
+    def test_directive_engine(
         self,
-        directive_engine: Type[DirectiveEngine],
-        match_params: Dict,
-        expected_query: Dict,
+        _engine_cls: Type[DirectiveEngine],
+        _match_params: Dict[str, Any],
+        _expected_query: Dict[str, Any],
+        _expected_exc_cls: Optional[Type[Exception]],
+        _exc_message: str,
     ):
-        """
-        Test that the generated query matches the expected output.
+        """Test the directive engine query generation"""
+        try:
+            dsl = _engine_cls().set_match_params(_match_params).to_dsl()
+            generated_query = dsl.to_query() if dsl else None
 
-        Args:
-            directive_engine (Type[DirectiveEngine]): The engine class to test
-            match_params (Dict): Input parameters for the query
-            expected_query (Dict): Expected query structure
-        """
-        dsl = directive_engine().set_match_params(match_params).to_dsl()
-        generated_query = dsl.to_query()
+            if _expected_exc_cls:
+                pytest.fail(
+                    f"Expected exception {_expected_exc_cls.__name__} was not raised"
+                )
 
-        assert generated_query == expected_query, (
-            f"Generated query does not match expected query.\n"
-            f"Generated: {json.dumps(generated_query, indent=2)}\n"
-            f"Expected: {json.dumps(expected_query, indent=2)}"
+            test_case_info = (
+                type(self).__name__ + f" | Description: {self.__doc__}"
+                if self.__doc__
+                else ""
+            )
+            assert generated_query == _expected_query, (
+                f"Test case failed: {test_case_info}\n"
+                f"Generated query does not match expected query.\n"
+                f"Generated: {generated_query}\n"
+                f"Expected: {_expected_query}"
+            )
+
+        except Exception as exc:
+            return self._validate_exc(exc, _expected_exc_cls, _exc_message)
+
+    def _validate_exc(
+        self,
+        exc: Exception,
+        allowed_exc_cls: Optional[Exception],
+        exc_message: str,
+    ):
+        if not allowed_exc_cls:
+            raise exc
+        assert isinstance(exc, allowed_exc_cls), (
+            "Raise exception did not match allowed_exc\n",
+            f"Raised Exc: {type(exc).__name__}\n",
+            f"Allowed Exc: {allowed_exc_cls.__name__}\n",
         )
+        if exc_message:
+            assert exc_message.lower() in str(exc).lower(), (
+                f"Exception message did not match\n"
+                f"Expected message: {exc_message}\n"
+                f"Actual message: {str(exc)}"
+            )
+
+
+class FunctionScoreEngineBaseTest(DirectiveEngineBaseTest):
+    """
+    Base test class for testing FunctionScoreEngine implementations.
+
+    This class extends DirectiveEngineBaseTest to provide a framework for testing
+    function score engines with various score functions and configurations.
+
+    Class Attributes:
+        description (str): Test case description
+        engine_cls (Type[FunctionScoreEngine]): FunctionScoreEngine class to test
+        match_params (Dict[str, Any]): Input parameters for the query
+        match_query (Dict[str, Any]): Base query to be scored
+        expected_query (Dict[str, Any]): Expected query output
+        expected_exc_cls (Optional[Type[Exception]]): Expected exception class
+        exc_message (str): Expected exception message
+    """
+
+    match_query: Dict[str, Any] = None
+
+    @pytest.fixture
+    def _match_query(self) -> Dict[str, Any]:
+        return self.match_query
+
+    def test_directive_engine(
+        self,
+        _engine_cls: Type[FunctionScoreEngine],
+        _match_params: Dict[str, Any],
+        _match_query: Dict[str, Any],
+        _expected_query: Dict[str, Any],
+        _expected_exc_cls: Optional[Type[Exception]],
+        _exc_message: str,
+    ):
+        """Test the function score engine query generation"""
+        try:
+            # Create a mock DSLQuery for the match query
+            class MockDSLQuery(DSLQuery):
+                def to_query(self):
+                    return _match_query
+
+            mock_dsl = MockDSLQuery(boost=None, _name=None)
+
+            # Set up and execute the function score engine
+            dsl = (
+                _engine_cls()
+                .set_match_params(_match_params)
+                .set_match_dsl(mock_dsl)
+                .to_dsl()
+            )
+            generated_query = dsl.to_query() if dsl else None
+
+            if _expected_exc_cls:
+                pytest.fail(
+                    f"Expected exception {_expected_exc_cls.__name__} was not raised"
+                )
+
+            test_case_info = (
+                type(self).__name__ + f" | Description: {self.__doc__}"
+                if self.__doc__
+                else ""
+            )
+            assert generated_query == _expected_query, (
+                f"Test case failed: {test_case_info}\n"
+                f"Generated query does not match expected query.\n"
+                f"Generated: {generated_query}\n"
+                f"Expected: {_expected_query}"
+            )
+
+        except Exception as exc:
+            return self._validate_exc(exc, _expected_exc_cls, _exc_message)
