@@ -4,7 +4,13 @@ from typing import Any, Dict, List, Optional, Type, Union
 
 from elasticquerydsl.base import DSLQuery
 
+from elastictoolkit.queryutils.builder.custommatchdirective import (
+    CustomMatchDirective,
+)
 from elastictoolkit.queryutils.builder.directiveengine import DirectiveEngine
+from elastictoolkit.queryutils.builder.directivevaluemapper import (
+    DirectiveValueMapper,
+)
 from elastictoolkit.queryutils.builder.functionscoreengine import (
     FunctionScoreEngine,
 )
@@ -34,6 +40,7 @@ class MatchDirectiveBaseTest:
     values_list: List[Any] = []
     values_map: Dict[str, Any] = {}
     match_params: Dict[str, Any] = {}
+    value_mapper: DirectiveValueMapper = None
     expected_query: Dict[str, Any] = ...
     allowed_exc_cls: Exception = None
     exc_message: str = ""
@@ -96,6 +103,10 @@ class MatchDirectiveBaseTest:
         return self.match_params
 
     @pytest.fixture
+    def _value_mapper(self) -> DirectiveValueMapper:
+        return self.value_mapper
+
+    @pytest.fixture
     def _expected_query(self) -> Dict[str, Any]:
         """
         Fixture that provides the expected query output.
@@ -125,6 +136,7 @@ class MatchDirectiveBaseTest:
         _values_list: List[Any],
         _values_map: Dict[str, Any],
         _match_params: Dict[str, Any],
+        _value_mapper: DirectiveValueMapper,
         _expected_query: Dict[str, Any],
         _allowed_exc_cls: Exception,
         _exc_message: str,
@@ -149,6 +161,10 @@ class MatchDirectiveBaseTest:
             _match_directive.set_field(*_fields)
         if _values_list or _values_map:
             _match_directive.set_values(*_values_list, **_values_map)
+        if _value_mapper and isinstance(
+            _match_directive, CustomMatchDirective
+        ):
+            _match_directive.set_directive_value_mapper(_value_mapper)
 
         try:
             dsl = _match_directive.to_dsl(nullable=True)
