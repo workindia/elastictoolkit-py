@@ -160,7 +160,9 @@ class TestConstMatchDirectiveSingleNestedFieldAny(MatchDirectiveBaseTest):
         rule=FieldMatchType.ANY, name="test_const"
     )
     fields = [
-        NestedField(nested_path="nested_path", field_name="nested_field")
+        NestedField(
+            nested_path="nested_path", field_name="nested_path.nested_field"
+        )
     ]
     values_list = ["match_params.value1", "match_params.value2"]
     match_params = {"value1": "test1", "value2": "test2"}
@@ -211,7 +213,9 @@ class TestConstMatchDirectiveSingleNestedFieldAll(MatchDirectiveBaseTest):
         rule=FieldMatchType.ALL, name="test_const"
     )
     fields = [
-        NestedField(nested_path="nested_path", field_name="nested_field")
+        NestedField(
+            nested_path="nested_path", field_name="nested_path.nested_field"
+        )
     ]
     values_list = ["match_params.value1", "match_params.value2"]
     match_params = {"value1": "test1", "value2": "test2"}
@@ -263,8 +267,8 @@ class TestConstMatchDirectiveMixedFieldsAny(MatchDirectiveBaseTest):
     )
     fields = [
         "normal_field",
-        NestedField(nested_path="path1", field_name="nested1"),
-        NestedField(nested_path="path2", field_name="nested2"),
+        NestedField(nested_path="path1", field_name="path1.nested1"),
+        NestedField(nested_path="path2", field_name="path2.nested2"),
     ]
     values_list = ["match_params.value1", "match_params.value2"]
     match_params = {"value1": "test1", "value2": "test2"}
@@ -348,8 +352,8 @@ class TestConstMatchDirectiveMixedFieldsAll(MatchDirectiveBaseTest):
     )
     fields = [
         "normal_field",
-        NestedField(nested_path="path1", field_name="nested1"),
-        NestedField(nested_path="path2", field_name="nested2"),
+        NestedField(nested_path="path1", field_name="path1.nested1"),
+        NestedField(nested_path="path2", field_name="path2.nested2"),
     ]
     values_list = ["match_params.value1", "match_params.value2"]
     match_params = {"value1": "test1", "value2": "test2"}
@@ -615,7 +619,9 @@ class TestTextMatchDirectiveSingleNestedFieldAny(MatchDirectiveBaseTest):
         rule=FieldMatchType.ANY, name="test_text"
     ).set_match_query_extra_args(fuzziness="auto", operator="or")
     fields = [
-        NestedField(nested_path="nested_path", field_name="nested_field")
+        NestedField(
+            nested_path="nested_path", field_name="nested_path.nested_field"
+        )
     ]
     values_list = ["match_params.value1", "match_params.value2"]
     match_params = {"value1": "test1", "value2": "test2"}
@@ -671,8 +677,8 @@ class TestTextMatchDirectiveMixedFieldsAll(MatchDirectiveBaseTest):
     )
     fields = [
         "normal_field",
-        NestedField(nested_path="path1", field_name="nested1"),
-        NestedField(nested_path="path2", field_name="nested2"),
+        NestedField(nested_path="path1", field_name="path1.nested1"),
+        NestedField(nested_path="path2", field_name="path2.nested2"),
     ]
     values_list = ["match_params.value1", "match_params.value2"]
     match_params = {"value1": "test1", "value2": "test2"}
@@ -818,7 +824,7 @@ class TestRangeMatchDirectiveNestedField(MatchDirectiveBaseTest):
     """Test cases for RangeMatchDirective with nested field"""
 
     match_directive = RangeMatchDirective(name="test_range")
-    fields = [NestedField(nested_path="product", field_name="price")]
+    fields = [NestedField(nested_path="product", field_name="product.price")]
     values_list = []
     values_map = {
         "gte": "match_params.min_price",

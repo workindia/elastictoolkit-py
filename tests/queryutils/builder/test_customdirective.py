@@ -28,7 +28,10 @@ class ValueMapper(DirectiveValueMapper):
     )
     nested_field_match = FieldValue(
         fields=[
-            NestedField(field_name="nested_field", nested_path="nested_path")
+            NestedField(
+                field_name="nested_path.nested_field",
+                nested_path="nested_path",
+            )
         ],
         values_list=["*match_params.nested_value"],
     )

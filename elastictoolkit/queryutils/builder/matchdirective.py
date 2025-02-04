@@ -358,7 +358,7 @@ class ConstMatchDirective(MatchDirective):
             NestedQuery(
                 path=field.nested_path,
                 query=TermQuery(
-                    f"{field.nested_path}.{field.field_name}",
+                    field.field_name,
                     v,
                     _name=self._name,
                 ),
@@ -510,7 +510,7 @@ class TextMatchDirective(ConstMatchDirective):
                 path=field.nested_path,
                 query=self._generate_dsl_query(
                     MatchQuery,
-                    field=f"{field.nested_path}.{field.field_name}",
+                    field=field.field_name,
                     value=v,
                     **self._match_query_kwargs,
                 ),
@@ -565,9 +565,7 @@ class RangeMatchDirective(MatchDirective):
         fields, nested_fields = self.fields
         field = fields[0] if fields else nested_fields[0]
         is_nested = isinstance(field, NestedField)
-        field_name = (
-            f"{field.nested_path}.{field.field_name}" if is_nested else field
-        )
+        field_name = field.field_name if is_nested else field
         query = RangeQuery(
             field_name,
             gte=self.values_map.get("gte"),
