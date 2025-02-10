@@ -1,5 +1,6 @@
 from elastictoolkit.queryutils.builder.matchdirective import (
     ConstMatchDirective,
+    FieldExistsDirective,
     RangeMatchDirective,
     ScriptMatchDirective,
     TextMatchDirective,
@@ -1128,3 +1129,292 @@ class TestScriptMatchDirectiveEmptyParams(MatchDirectiveBaseTest):
             ]
         }
     }
+
+
+class TestFieldExistsDirectiveSingleField(MatchDirectiveBaseTest):
+    """Test cases for FieldExistsDirective with single field"""
+
+    match_directive = FieldExistsDirective(
+        rule=FieldMatchType.ANY, name="test_exists"
+    )
+    fields = ["normal_field"]
+    expected_query = {
+        "bool": {
+            "filter": [
+                {"exists": {"field": "normal_field", "_name": "test_exists"}}
+            ]
+        }
+    }
+
+
+class TestFieldExistsDirectiveMultiFieldAny(MatchDirectiveBaseTest):
+    """Test cases for FieldExistsDirective with multiple fields and ANY match type"""
+
+    match_directive = FieldExistsDirective(
+        rule=FieldMatchType.ANY, name="test_exists"
+    )
+    fields = ["field1", "field2", "field3"]
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "exists": {
+                                    "field": "field1",
+                                    "_name": "test_exists",
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "field": "field2",
+                                    "_name": "test_exists",
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "field": "field3",
+                                    "_name": "test_exists",
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestFieldExistsDirectiveMultiFieldAll(MatchDirectiveBaseTest):
+    """Test cases for FieldExistsDirective with multiple fields and ALL match type"""
+
+    match_directive = FieldExistsDirective(
+        rule=FieldMatchType.ALL, name="test_exists"
+    )
+    fields = ["field1", "field2", "field3"]
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "filter": [
+                            {
+                                "exists": {
+                                    "field": "field1",
+                                    "_name": "test_exists",
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "field": "field2",
+                                    "_name": "test_exists",
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "field": "field3",
+                                    "_name": "test_exists",
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestFieldExistsDirectiveSingleNestedField(MatchDirectiveBaseTest):
+    """Test cases for FieldExistsDirective with single nested field"""
+
+    match_directive = FieldExistsDirective(
+        rule=FieldMatchType.ANY, name="test_exists"
+    )
+    fields = [
+        NestedField(
+            nested_path="nested_path", field_name="nested_path.nested_field"
+        )
+    ]
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "nested": {
+                        "path": "nested_path",
+                        "query": {
+                            "exists": {
+                                "field": "nested_path.nested_field",
+                                "_name": "test_exists",
+                            }
+                        },
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestFieldExistsDirectiveMixedFieldsAny(MatchDirectiveBaseTest):
+    """Test cases for FieldExistsDirective with mixed fields (normal and nested) and ANY match type"""
+
+    match_directive = FieldExistsDirective(
+        rule=FieldMatchType.ANY, name="test_exists"
+    )
+    fields = [
+        "normal_field1",
+        "normal_field2",
+        NestedField(nested_path="path1", field_name="path1.nested1"),
+        NestedField(nested_path="path2", field_name="path2.nested2"),
+    ]
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "exists": {
+                                    "field": "normal_field1",
+                                    "_name": "test_exists",
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "field": "normal_field2",
+                                    "_name": "test_exists",
+                                }
+                            },
+                            {
+                                "nested": {
+                                    "path": "path1",
+                                    "query": {
+                                        "exists": {
+                                            "field": "path1.nested1",
+                                            "_name": "test_exists",
+                                        }
+                                    },
+                                }
+                            },
+                            {
+                                "nested": {
+                                    "path": "path2",
+                                    "query": {
+                                        "exists": {
+                                            "field": "path2.nested2",
+                                            "_name": "test_exists",
+                                        }
+                                    },
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestFieldExistsDirectiveMixedFieldsAll(MatchDirectiveBaseTest):
+    """Test cases for FieldExistsDirective with mixed fields (normal and nested) and ALL match type"""
+
+    match_directive = FieldExistsDirective(
+        rule=FieldMatchType.ALL, name="test_exists"
+    )
+    fields = [
+        "normal_field1",
+        "normal_field2",
+        NestedField(nested_path="path1", field_name="path1.nested1"),
+        NestedField(nested_path="path2", field_name="path2.nested2"),
+    ]
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "filter": [
+                            {
+                                "exists": {
+                                    "field": "normal_field1",
+                                    "_name": "test_exists",
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "field": "normal_field2",
+                                    "_name": "test_exists",
+                                }
+                            },
+                            {
+                                "nested": {
+                                    "path": "path1",
+                                    "query": {
+                                        "exists": {
+                                            "field": "path1.nested1",
+                                            "_name": "test_exists",
+                                        }
+                                    },
+                                }
+                            },
+                            {
+                                "nested": {
+                                    "path": "path2",
+                                    "query": {
+                                        "exists": {
+                                            "field": "path2.nested2",
+                                            "_name": "test_exists",
+                                        }
+                                    },
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestFieldExistsDirectiveExcludeMode(MatchDirectiveBaseTest):
+    """Test cases for FieldExistsDirective with EXCLUDE mode"""
+
+    match_directive = FieldExistsDirective(
+        rule=FieldMatchType.ANY, mode=MatchMode.EXCLUDE, name="test_exists"
+    )
+    fields = ["field1", "field2"]
+    expected_query = {
+        "bool": {
+            "must_not": [
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "exists": {
+                                    "field": "field1",
+                                    "_name": "test_exists",
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "field": "field2",
+                                    "_name": "test_exists",
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestFieldExistsDirectiveNoFieldError(MatchDirectiveBaseTest):
+    """Test cases for FieldExistsDirective with no fields and non-nullable"""
+
+    match_directive = FieldExistsDirective(
+        rule=FieldMatchType.ANY, name="test_exists"
+    )
+    fields = []
+    expected_query = None
+    allowed_exc_cls = ValueError
+    exc_message = " directive requires: `field`. This must be set using `set_field` method."
