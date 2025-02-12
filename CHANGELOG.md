@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## 0.4.0 (2025-02-12)
+### Added
+- Updated multi-value search for multi-fields const query and fixed nested field name
+- `FunctionScoreEngine`, refactored query builder utils and enhanced directive functionality
+- New score function directives for better query customization.
+- Implemented BoolDirective and FunctionScoreEngine to extend query capabilities.
+- `QueryStringDirective` for complex query matching
+- Unit Tests
+
 ## 0.3.1 (2025-01-08)
 ### Changed
 - Enabled field/value copy for explicit declarations in CustomMatchDirective
