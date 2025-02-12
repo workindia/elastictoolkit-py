@@ -1,76 +1,30 @@
-import typing as t
 from elasticquerydsl.base import DSLQuery
 from elasticquerydsl.utils import BooleanDSLBuilder
 
-from elastictoolkit.queryutils.builder.custommatchdirective import (
-    CustomMatchDirective,
+from elastictoolkit.queryutils.builder.base import BaseQueryEngine
+from elastictoolkit.queryutils.builder.matchdirectivebuilder import (
+    MatchDirectiveBuilder,
 )
-from elastictoolkit.queryutils.types import FieldValue
 from elastictoolkit.queryutils.builder.matchdirective import MatchDirective
-from elastictoolkit.queryutils.builder.directivevaluemapper import (
-    DirectiveValueMapper,
-)
 
 
-class DirectiveEngine:
-    class _DefaultConfig:
-        match_directive_config: t.Dict[str, t.Any] = {}
-
-    class Config:
-        """`Config` class should be overriden in Sub-Class"""
-
-        value_mapper: DirectiveValueMapper = None
-        match_directive_config: t.Dict[str, t.Any] = {}
-
-    def __init__(self) -> None:
-        self._match_params = None
-
-    def set_match_params(self, match_params: t.Dict[str, t.Any] = None):
-        self._match_params = match_params
-        return self
-
-    @property
-    def match_params(self):
-        return self._match_params
-
+class DirectiveEngine(BaseQueryEngine):
     def to_dsl(self) -> DSLQuery:
         bool_builder = BooleanDSLBuilder()
-        for attr_key in dir(self):
-            directive = getattr(self, attr_key)
-            if not isinstance(directive, MatchDirective):
-                continue
-
-            directive = directive.copy()
-
-            # Configure Directive
-            match_directive_config = (
-                getattr(self.Config, "match_directive_config", None)
-                or self._DefaultConfig.match_directive_config
+        engine_attributes = self.get_engine_attr(MatchDirective)
+        match_directive_config = (
+            getattr(self.Config, "match_directive_config", None)
+            or self._DefaultConfig.match_directive_config
+        )
+        for attr, match_directive in engine_attributes.items():
+            match_directive = (
+                MatchDirectiveBuilder(match_directive)
+                .set_value_mapper(attr, self.Config.value_mapper)
+                .set_match_params(self.match_params)
+                .set_parent_engine_name(self.__class__.__name__)
+                .set_match_directive_config(**match_directive_config)
+                .build()
             )
-            directive.configure(**match_directive_config)
-
-            # Handle Custom Directives
-            value_mapper = self.Config.value_mapper
-            if isinstance(directive, CustomMatchDirective):
-                directive.validate_directive_engine(
-                    self
-                ).set_directive_value_mapper(value_mapper)
-            attr_field_mapping: FieldValue = value_mapper.get_field_value(
-                attr_key
-            )
-
-            # Set dynamic parameters for query generation
-            fields, values_list, values_map = [], [], {}
-            if attr_field_mapping:
-                fields, values_list, values_map = (
-                    attr_field_mapping.fields,
-                    attr_field_mapping.values_list,
-                    attr_field_mapping.values_map,
-                )
-            directive.set_match_params(self.match_params)
-            directive.set_field(*fields)
-            directive.set_values(*values_list, **values_map)
-
             # Generate Query
-            directive.execute(bool_builder)
+            match_directive.execute(bool_builder)
         return bool_builder.build()
