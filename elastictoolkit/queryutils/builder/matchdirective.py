@@ -13,6 +13,7 @@ from elasticquerydsl.filter import (
     TermQuery,
     TermsQuery,
     ExistsQuery,
+    QueryStringQuery,
 )
 from elasticquerydsl.utils import BooleanDSLBuilder
 
@@ -512,6 +513,54 @@ class TextMatchDirective(ConstMatchDirective):
                     MatchQuery,
                     field=field.field_name,
                     value=v,
+                    **self._match_query_kwargs,
+                ),
+            )
+            for field in nested_fields
+            for v in self.values_list
+        ]
+
+
+class QueryStringMatchDirective(TextMatchDirective):
+    def _get_multi_field_queries(
+        self, fields: t.List[str]
+    ) -> t.List[DSLQuery]:
+        return [
+            self._generate_dsl_query(
+                QueryStringQuery,
+                query=v,
+                fields=fields,
+                _name=self._name,
+                **self._match_query_kwargs,
+            )
+            for v in self.values_list
+        ]
+
+    def _get_single_field_queries(self, field: str) -> t.List[DSLQuery]:
+        if not self.values_list:
+            return []
+
+        return [
+            self._generate_dsl_query(
+                QueryStringQuery,
+                fields=[field],
+                query=v,
+                _name=self._name,
+                **self._match_query_kwargs,
+            )
+            for v in self.values_list
+        ]
+
+    def _get_nested_fields_queries(self) -> t.List[DSLQuery]:
+        _, nested_fields = self.fields
+        return [
+            NestedQuery(
+                path=field.nested_path,
+                query=self._generate_dsl_query(
+                    QueryStringQuery,
+                    fields=[field.field_name],
+                    query=v,
+                    _name=self._name,
                     **self._match_query_kwargs,
                 ),
             )

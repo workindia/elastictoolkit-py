@@ -5,6 +5,7 @@ from elastictoolkit.queryutils.builder.matchdirective import (
     ScriptMatchDirective,
     TextMatchDirective,
     WaterfallFieldMatchDirective,
+    QueryStringMatchDirective,
 )
 from elastictoolkit.queryutils.consts import (
     FieldMatchType,
@@ -761,6 +762,195 @@ class TestTextMatchDirectiveMixedFieldsAll(MatchDirectiveBaseTest):
                                                 "fuzziness": "auto",
                                                 "minimum_should_match": "2<70%",
                                             }
+                                        }
+                                    },
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+# QueryStringMatchDirective
+
+
+class TestQueryStringMatchDirectiveSingleFieldAll(MatchDirectiveBaseTest):
+    """Test cases for QueryStringMatchDirective with single field and ALL match type"""
+
+    match_directive = QueryStringMatchDirective(
+        rule=FieldMatchType.ALL, name="test_query_string"
+    ).set_match_query_extra_args(default_operator="AND", fuzziness="AUTO")
+    fields = ["field1"]
+    values_list = ["match_params.value1", "match_params.value2"]
+    match_params = {"value1": "test1", "value2": "test2"}
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "filter": [
+                            {
+                                "query_string": {
+                                    "query": "test1",
+                                    "fields": ["field1"],
+                                    "default_operator": "AND",
+                                    "fuzziness": "AUTO",
+                                    "_name": "test_query_string",
+                                }
+                            },
+                            {
+                                "query_string": {
+                                    "query": "test2",
+                                    "fields": ["field1"],
+                                    "default_operator": "AND",
+                                    "fuzziness": "AUTO",
+                                    "_name": "test_query_string",
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestQueryStringMatchDirectiveMultiFieldAll(MatchDirectiveBaseTest):
+    """Test cases for QueryStringMatchDirective with multi-field and ALL match type"""
+
+    match_directive = QueryStringMatchDirective(
+        rule=FieldMatchType.ALL, name="test_query_string"
+    ).set_match_query_extra_args(minimum_should_match="75%", boost=2.0)
+    fields = ["field1", "field2"]
+    values_list = ["match_params.value1", "match_params.value2"]
+    match_params = {"value1": "test1", "value2": "test2"}
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "filter": [
+                            {
+                                "query_string": {
+                                    "query": "test1",
+                                    "fields": ["field1", "field2"],
+                                    "minimum_should_match": "75%",
+                                    "boost": 2.0,
+                                    "_name": "test_query_string",
+                                }
+                            },
+                            {
+                                "query_string": {
+                                    "query": "test2",
+                                    "fields": ["field1", "field2"],
+                                    "minimum_should_match": "75%",
+                                    "boost": 2.0,
+                                    "_name": "test_query_string",
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestQueryStringMatchDirectiveSingleFieldAny(MatchDirectiveBaseTest):
+    """Test cases for QueryStringMatchDirective with single field and ANY match type"""
+
+    match_directive = QueryStringMatchDirective(
+        rule=FieldMatchType.ANY, name="test_query_string"
+    ).set_match_query_extra_args(analyze_wildcard=True, lenient=True)
+    fields = ["field1"]
+    values_list = ["match_params.value1", "match_params.value2"]
+    match_params = {"value1": "test1*", "value2": "test2*"}
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "query_string": {
+                                    "query": "test1*",
+                                    "fields": ["field1"],
+                                    "analyze_wildcard": True,
+                                    "lenient": True,
+                                    "_name": "test_query_string",
+                                }
+                            },
+                            {
+                                "query_string": {
+                                    "query": "test2*",
+                                    "fields": ["field1"],
+                                    "analyze_wildcard": True,
+                                    "lenient": True,
+                                    "_name": "test_query_string",
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestQueryStringMatchDirectiveSingleNestedFieldAny(
+    MatchDirectiveBaseTest
+):
+    """Test cases for QueryStringMatchDirective with single nested field and ANY match type"""
+
+    match_directive = QueryStringMatchDirective(
+        rule=FieldMatchType.ANY, name="test_query_string"
+    ).set_match_query_extra_args(
+        default_operator="OR", allow_leading_wildcard=False
+    )
+    fields = [
+        NestedField(
+            nested_path="nested_path", field_name="nested_path.nested_field"
+        )
+    ]
+    values_list = ["match_params.value1", "match_params.value2"]
+    match_params = {"value1": "test1", "value2": "test2"}
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "nested": {
+                                    "path": "nested_path",
+                                    "query": {
+                                        "query_string": {
+                                            "query": "test1",
+                                            "fields": [
+                                                "nested_path.nested_field"
+                                            ],
+                                            "default_operator": "OR",
+                                            "allow_leading_wildcard": False,
+                                            "_name": "test_query_string",
+                                        }
+                                    },
+                                }
+                            },
+                            {
+                                "nested": {
+                                    "path": "nested_path",
+                                    "query": {
+                                        "query_string": {
+                                            "query": "test2",
+                                            "fields": [
+                                                "nested_path.nested_field"
+                                            ],
+                                            "default_operator": "OR",
+                                            "allow_leading_wildcard": False,
+                                            "_name": "test_query_string",
                                         }
                                     },
                                 }
