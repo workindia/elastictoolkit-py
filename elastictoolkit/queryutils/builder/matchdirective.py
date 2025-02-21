@@ -240,7 +240,7 @@ class ConstMatchDirective(MatchDirective):
         return self_copy
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
-        if self._base_match_op == BaseMatchOp.OR:
+        if self._base_match_op != BaseMatchOp.AND:
             return []
         and_queries = self._get_bool_queries(
             MatchMode.INCLUDE
@@ -248,7 +248,7 @@ class ConstMatchDirective(MatchDirective):
         return and_queries
 
     def _get_bool_should_queries(self) -> t.List[DSLQuery]:
-        if self._base_match_op == BaseMatchOp.AND:
+        if self._base_match_op != BaseMatchOp.OR:
             return []
         or_queries = self._get_bool_queries(
             MatchMode.INCLUDE
@@ -608,12 +608,12 @@ class RangeMatchDirective(MatchDirective):
         return self_copy
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
-        if self._base_match_op == BaseMatchOp.OR:
+        if self._base_match_op != BaseMatchOp.AND:
             return []
         return self._get_bool_queries(MatchMode.INCLUDE)
 
     def _get_bool_should_queries(self) -> t.List[DSLQuery]:
-        if self._base_match_op == BaseMatchOp.AND:
+        if self._base_match_op != BaseMatchOp.OR:
             return []
         return self._get_bool_queries(MatchMode.INCLUDE)
 
@@ -711,12 +711,12 @@ class ScriptMatchDirective(MatchDirective):
         return self_copy
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
-        if self._base_match_op == BaseMatchOp.OR:
+        if self._base_match_op != BaseMatchOp.AND:
             return []
         return self._get_bool_queries(MatchMode.INCLUDE)
 
     def _get_bool_should_queries(self) -> t.List[DSLQuery]:
-        if self._base_match_op == BaseMatchOp.AND:
+        if self._base_match_op != BaseMatchOp.OR:
             return []
         return self._get_bool_queries(MatchMode.INCLUDE)
 
@@ -760,7 +760,7 @@ class FieldExistsDirective(MatchDirective):
     def __init__(
         self,
         rule: FieldMatchType = FieldMatchType.ANY,
-        mode=MatchMode.INCLUDE,
+        mode: MatchMode = MatchMode.INCLUDE,
         name: t.Optional[str] = None,
     ):
         self.rule = rule
@@ -768,16 +768,16 @@ class FieldExistsDirective(MatchDirective):
         super().__init__(mode, nullable_value=False)
 
     def copy(self, **kwargs) -> Self:
-        self_copy = self.__class__(self.mode, self.nullable_value, self.name)
+        self_copy = self.__class__(self.rule, self.mode, self.name)
         return self_copy
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
-        if self._base_match_op == BaseMatchOp.OR:
+        if self._base_match_op != BaseMatchOp.AND:
             return []
         return self._get_bool_queries(MatchMode.INCLUDE)
 
     def _get_bool_should_queries(self) -> t.List[DSLQuery]:
-        if self._base_match_op == BaseMatchOp.AND:
+        if self._base_match_op != BaseMatchOp.OR:
             return []
         return self._get_bool_queries(MatchMode.INCLUDE)
 

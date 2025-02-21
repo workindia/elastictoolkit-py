@@ -1368,6 +1368,9 @@ class TestScriptMatchDirectiveEmptyParams(MatchDirectiveBaseTest):
     }
 
 
+# FieldExistsDirective
+
+
 class TestFieldExistsDirectiveSingleField(MatchDirectiveBaseTest):
     """Test cases for FieldExistsDirective with single field"""
 

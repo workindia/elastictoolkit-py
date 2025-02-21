@@ -4,7 +4,7 @@ from elasticquerydsl.base import DSLQuery, BoolQuery
 
 
 from elastictoolkit.queryutils.builder.matchdirective import MatchDirective
-from elastictoolkit.queryutils.consts import MatchMode
+from elastictoolkit.queryutils.consts import BaseMatchOp, MatchMode
 from elastictoolkit.queryutils.builder.directivevaluemapper import (
     DirectiveValueMapper,
 )
@@ -81,7 +81,19 @@ class CustomMatchDirective(MatchDirective):
         return bool_directive.to_dsl()
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
-        if self.mode != MatchMode.INCLUDE:
+        if (
+            self.mode != MatchMode.INCLUDE
+            or self._base_match_op != BaseMatchOp.AND
+        ):
+            return []
+        query = self._get_custom_directive_query()
+        return [query] if query else []
+
+    def _get_bool_should_queries(self) -> t.List[DSLQuery]:
+        if (
+            self.mode != MatchMode.INCLUDE
+            or self._base_match_op != BaseMatchOp.OR
+        ):
             return []
         query = self._get_custom_directive_query()
         return [query] if query else []
