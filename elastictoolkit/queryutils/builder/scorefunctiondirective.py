@@ -77,10 +77,23 @@ class ScoreFunctionDirective:
         return self
 
     def configure(self, value_parser_config: t.Dict[str, t.Any] = ...):
+        """Configure the score function directive.
+
+        Args:
+            value_parser_config (t.Dict[str, t.Any], optional): The value parser config. [default: ...]
+        """
+        # NOTE: When adding new config kwargs, make sure to add them to the `config_kwargs` property
         if value_parser_config is not ...:
             self._value_parser_config = (
                 value_parser_config or self._value_parser_config
             )
+        return self
+
+    @property
+    def config_kwargs(self) -> t.Dict[str, t.Any]:
+        return {
+            "value_parser_config": self._value_parser_config,
+        }
 
     @property
     def filter_directive(self) -> t.Optional[MatchDirective]:
@@ -200,15 +213,19 @@ class ScriptScoreDirective(ScoreFunctionDirective):
         self._mandatory_params_keys = mandatory_params_keys
 
     def copy(self, **kwargs) -> Self:
-        self_copy = self.__class__(
-            self._script,
-            self._filter_directive,
-            self._weight,
-            self._lang,
-            self._mandatory_params_keys,
-            self._null_filter_action,
-            self._nullable_value,
-        ).set_score_func_extra_args(**self._score_func_kwargs)
+        self_copy = (
+            self.__class__(
+                self._script,
+                self._filter_directive,
+                self._weight,
+                self._lang,
+                self._mandatory_params_keys,
+                self._null_filter_action,
+                self._nullable_value,
+            )
+            .configure(**self.config_kwargs)
+            .set_score_func_extra_args(**self._score_func_kwargs)
+        )
         self_copy._script_params = self._script_params
         return self_copy
 
@@ -282,13 +299,17 @@ class RandomScoreDirective(ScoreFunctionDirective):
         self._field = field
 
     def copy(self, **kwargs) -> Self:
-        self_copy = self.__class__(
-            self._seed,
-            self._field,
-            self._filter_directive,
-            self._weight,
-            self._null_filter_action,
-        ).set_score_func_extra_args(**self._score_func_kwargs)
+        self_copy = (
+            self.__class__(
+                self._seed,
+                self._field,
+                self._filter_directive,
+                self._weight,
+                self._null_filter_action,
+            )
+            .configure(**self.config_kwargs)
+            .set_score_func_extra_args(**self._score_func_kwargs)
+        )
         return self_copy
 
     def generate_score_function(self) -> t.Optional[RandomScoreFunction]:
@@ -335,15 +356,19 @@ class FieldValueFactorDirective(ScoreFunctionDirective):
         self._missing = missing
 
     def copy(self, **kwargs) -> Self:
-        self_copy = self.__class__(
-            self._field,
-            self._factor,
-            self._modifier,
-            self._missing,
-            self._filter_directive,
-            self._weight,
-            self._null_filter_action,
-        ).set_score_func_extra_args(**self._score_func_kwargs)
+        self_copy = (
+            self.__class__(
+                self._field,
+                self._factor,
+                self._modifier,
+                self._missing,
+                self._filter_directive,
+                self._weight,
+                self._null_filter_action,
+            )
+            .configure(**self.config_kwargs)
+            .set_score_func_extra_args(**self._score_func_kwargs)
+        )
         return self_copy
 
     def generate_score_function(self) -> t.Optional[FieldValueFactorFunction]:
@@ -398,17 +423,21 @@ class DecayFunctionDirective(ScoreFunctionDirective):
         self._decay_type = decay_type
 
     def copy(self, **kwargs) -> Self:
-        self_copy = self.__class__(
-            self._field,
-            self._origin,
-            self._scale,
-            self._decay_type,
-            self._offset,
-            self._decay,
-            self._filter_directive,
-            self._weight,
-            self._null_filter_action,
-        ).set_score_func_extra_args(**self._score_func_kwargs)
+        self_copy = (
+            self.__class__(
+                self._field,
+                self._origin,
+                self._scale,
+                self._decay_type,
+                self._offset,
+                self._decay,
+                self._filter_directive,
+                self._weight,
+                self._null_filter_action,
+            )
+            .configure(**self.config_kwargs)
+            .set_score_func_extra_args(**self._score_func_kwargs)
+        )
         return self_copy
 
     def generate_score_function(self) -> t.Optional[DecayFunction]:
@@ -447,11 +476,15 @@ class WeightDirective(ScoreFunctionDirective):
         )
 
     def copy(self, **kwargs) -> Self:
-        self_copy = self.__class__(
-            self._weight,
-            self._filter_directive,
-            self._null_filter_action,
-        ).set_score_func_extra_args(**self._score_func_kwargs)
+        self_copy = (
+            self.__class__(
+                self._weight,
+                self._filter_directive,
+                self._null_filter_action,
+            )
+            .configure(**self.config_kwargs)
+            .set_score_func_extra_args(**self._score_func_kwargs)
+        )
         return self_copy
 
     def generate_score_function(self) -> t.Optional[WeightFunction]:

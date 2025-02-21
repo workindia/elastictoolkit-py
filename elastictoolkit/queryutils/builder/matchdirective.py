@@ -21,6 +21,7 @@ from elastictoolkit.queryutils.builder.base import BaseDirective
 from elastictoolkit.queryutils.types import NestedField
 from elastictoolkit.queryutils.consts import (
     AndQueryOp,
+    BaseMatchOp,
     MatchMode,
     FieldMatchType,
     WaterFallMatchOp,
@@ -230,7 +231,7 @@ class ConstMatchDirective(MatchDirective):
             self.__class__(
                 self.rule, self.mode, self.nullable_value, self._name
             )
-            .configure(self._value_parser_config, self._and_query_op)
+            .configure(**self.config_kwargs)
             .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
@@ -239,10 +240,20 @@ class ConstMatchDirective(MatchDirective):
         return self_copy
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
+        if self._base_match_op == BaseMatchOp.OR:
+            return []
         and_queries = self._get_bool_queries(
             MatchMode.INCLUDE
         ) or self._get_bool_queries(MatchMode.INCLUDE_IF_EXIST_ANY)
         return and_queries
+
+    def _get_bool_should_queries(self) -> t.List[DSLQuery]:
+        if self._base_match_op == BaseMatchOp.AND:
+            return []
+        or_queries = self._get_bool_queries(
+            MatchMode.INCLUDE
+        ) or self._get_bool_queries(MatchMode.INCLUDE_IF_EXIST_ANY)
+        return or_queries
 
     def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:
         return self._get_bool_queries(MatchMode.EXCLUDE)
@@ -398,7 +409,7 @@ class WaterfallFieldMatchDirective(ConstMatchDirective):
                 self.nullable_value,
                 self._name,
             )
-            .configure(self._value_parser_config, self._and_query_op)
+            .configure(**self.config_kwargs)
             .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
@@ -587,7 +598,7 @@ class RangeMatchDirective(MatchDirective):
     ) -> Self:
         self_copy = (
             self.__class__(self.mode, self.nullable_value, self.name)
-            .configure(self._value_parser_config, self._and_query_op)
+            .configure(**self.config_kwargs)
             .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
@@ -597,6 +608,13 @@ class RangeMatchDirective(MatchDirective):
         return self_copy
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
+        if self._base_match_op == BaseMatchOp.OR:
+            return []
+        return self._get_bool_queries(MatchMode.INCLUDE)
+
+    def _get_bool_should_queries(self) -> t.List[DSLQuery]:
+        if self._base_match_op == BaseMatchOp.AND:
+            return []
         return self._get_bool_queries(MatchMode.INCLUDE)
 
     def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:
@@ -683,7 +701,7 @@ class ScriptMatchDirective(MatchDirective):
                 self.nullable_value,
                 self.name,
             )
-            .configure(self._value_parser_config, self._and_query_op)
+            .configure(**self.config_kwargs)
             .set_match_query_extra_args(**self._match_query_kwargs)
         )
         self_copy._fields = self._fields if fields else None
@@ -693,6 +711,13 @@ class ScriptMatchDirective(MatchDirective):
         return self_copy
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
+        if self._base_match_op == BaseMatchOp.OR:
+            return []
+        return self._get_bool_queries(MatchMode.INCLUDE)
+
+    def _get_bool_should_queries(self) -> t.List[DSLQuery]:
+        if self._base_match_op == BaseMatchOp.AND:
+            return []
         return self._get_bool_queries(MatchMode.INCLUDE)
 
     def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:
@@ -747,6 +772,13 @@ class FieldExistsDirective(MatchDirective):
         return self_copy
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
+        if self._base_match_op == BaseMatchOp.OR:
+            return []
+        return self._get_bool_queries(MatchMode.INCLUDE)
+
+    def _get_bool_should_queries(self) -> t.List[DSLQuery]:
+        if self._base_match_op == BaseMatchOp.AND:
+            return []
         return self._get_bool_queries(MatchMode.INCLUDE)
 
     def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:

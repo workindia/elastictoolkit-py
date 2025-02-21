@@ -77,7 +77,7 @@ class CustomMatchDirective(MatchDirective):
         bool_directive.set_match_params(
             self._match_params
         ).set_directive_value_mapper(self._directive_value_mapper)
-        bool_directive.configure(self._value_parser_config, self._and_query_op)
+        bool_directive.configure(**self.config_kwargs)
         return bool_directive.to_dsl()
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:

@@ -8,6 +8,7 @@ from elastictoolkit.queryutils.builder.matchdirective import (
     QueryStringMatchDirective,
 )
 from elastictoolkit.queryutils.consts import (
+    AndQueryOp,
     FieldMatchType,
     MatchMode,
     WaterFallMatchOp,
@@ -431,6 +432,52 @@ class TestConstMatchDirectiveMixedFieldsAll(MatchDirectiveBaseTest):
                                             }
                                         }
                                     },
+                                }
+                            },
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestConstMatchDirectiveAndOpMust(MatchDirectiveBaseTest):
+    """Test cases for ConstMatchDirective with AND op and MUST match type"""
+
+    match_directive = ConstMatchDirective(
+        rule=FieldMatchType.ALL,
+        name="test_const",
+    ).configure(and_query_op=AndQueryOp.MUST)
+    fields = ["field1", "field2"]
+    values_list = ["match_params.value1", "match_params.value2"]
+    match_params = {"value1": "test1", "value2": "test2"}
+    expected_query = {
+        "bool": {
+            "must": [
+                {"match": {"field1": "value1"}},
+                {"match": {"field2": "value2"}},
+            ]
+        }
+    }
+    expected_query = {
+        "bool": {
+            "must": [
+                {
+                    "bool": {
+                        "filter": [
+                            {
+                                "multi_match": {
+                                    "query": "test1",
+                                    "fields": ["field1", "field2"],
+                                    "_name": "test_const",
+                                }
+                            },
+                            {
+                                "multi_match": {
+                                    "query": "test2",
+                                    "fields": ["field1", "field2"],
+                                    "_name": "test_const",
                                 }
                             },
                         ]
