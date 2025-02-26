@@ -10,7 +10,7 @@ from elastictoolkit.queryutils.consts import ScoreNullFilterAction
 
 
 class CustomScoreFunctionDirective(ScoreFunctionDirective):
-    allowed_engine_cls_name = None
+    allowed_engine_cls_name: str = None
 
     def __init_subclass__(cls, **kwargs):
         """Ensures that each subclass defines `allowed_engine_cls` explicitly"""
