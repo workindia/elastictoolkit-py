@@ -64,7 +64,7 @@ class RuntimeValueParser(ValueParser):
         if value.startswith(f"{self.prefix}."):
             key_path = value[len(f"{self.prefix}.") :]
             return self._resolve_key_path(key_path)
-        elif value.startswith("*") and len(value) > 1:
+        elif self._should_unpack(value):
             # Handle unpacking in lists
             parsed_value = self.parse(value[1:])
             return self._unpack_value(parsed_value)
@@ -109,15 +109,9 @@ class RuntimeValueParser(ValueParser):
         result = []
         for item in value:
             # Determine parsed value and whether it needs unpacking
+            should_unpack = self._should_unpack(item)
             parsed_value = self.parse(
-                item[1:]
-                if isinstance(item, str) and item.startswith("*")
-                else item
-            )
-            should_unpack = (
-                isinstance(item, str)
-                and item.startswith("*")
-                or (callable(item) and getattr(item, "unpack", False))
+                item[1:] if isinstance(item, str) and should_unpack else item
             )
 
             # Append or extend based on unpacking status
@@ -149,6 +143,13 @@ class RuntimeValueParser(ValueParser):
             else:
                 return None
         return result
+
+    def _should_unpack(self, value: Any) -> bool:
+        if isinstance(value, str) and value.startswith("*") and len(value) > 1:
+            return True
+        if callable(value) and getattr(value, "unpack", False):
+            return True
+        return False
 
     def _unpack_value(self, value: Any) -> list:
         """

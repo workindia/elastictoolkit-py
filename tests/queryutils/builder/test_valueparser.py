@@ -150,3 +150,8 @@ class TestRuntimeValueParser:
         """Test unpacking string value (should return as single-item list)"""
         result = parser._unpack_value("test")
         assert result == ["test"]
+
+    def test_unpack_list_with_asterisk(self, parser):
+        """Test unpacking list with asterisk"""
+        result = parser.parse(["*"])
+        assert result == ["*"]

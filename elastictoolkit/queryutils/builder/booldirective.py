@@ -36,7 +36,7 @@ class BoolDirective(BaseDirective):
                 *self.bool_directives,
                 **self.directives_map,
             )
-            .configure(self._value_parser_config, self._and_query_op)
+            .configure(**self.config_kwargs)
             .set_directive_value_mapper(self.directive_value_mapper)
         )
         self_copy._match_params = self._match_params if match_params else None
@@ -78,7 +78,7 @@ class BoolDirective(BaseDirective):
         for directive in self.bool_directives:
             directive = (
                 directive.copy()
-                .configure(self._value_parser_config, self._and_query_op)
+                .configure(**self.config_kwargs)
                 .set_directive_value_mapper(self.directive_value_mapper)
                 .set_match_params(self.match_params)
             )
