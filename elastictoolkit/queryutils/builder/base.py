@@ -79,11 +79,18 @@ class BaseQueryEngine:
     class Config:
         """`Config` class should be overriden in Sub-Class"""
 
-        value_mapper: DirectiveValueMapper = None
+        value_mapper: DirectiveValueMapper = ...
         match_directive_config: t.Dict[str, t.Any] = {}
 
     def __init__(self) -> None:
         self._match_params = None
+        self._validate_engine()
+
+    def _validate_engine(self):
+        if getattr(self.Config, "value_mapper", ...) is ...:
+            raise AttributeError(
+                f"{type(self).__name__}: `Config.value_mapper` is not set"
+            )
 
     def set_match_params(self, match_params: t.Dict[str, t.Any]) -> Self:
         self._match_params = match_params

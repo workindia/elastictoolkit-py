@@ -85,6 +85,9 @@ class TestMissingMatchDSL(FunctionScoreEngineBaseTest):
             weight=1.0,
         )
 
+        class Config:
+            value_mapper = None
+
     engine_cls = ScoreTestEngine
     match_params = {}
     expected_query = {
@@ -108,6 +111,7 @@ class TestEmptyScoreFunctions(FunctionScoreEngineBaseTest):
     class ScoreTestEngine(FunctionScoreEngine):
         class Config:
             score_mode = "sum"
+            value_mapper = None
 
     engine_cls = ScoreTestEngine
     match_params = {}

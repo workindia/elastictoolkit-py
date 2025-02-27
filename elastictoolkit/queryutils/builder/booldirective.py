@@ -42,6 +42,15 @@ class BoolDirective(BaseDirective):
         self_copy._match_params = self._match_params if match_params else None
         return self_copy
 
+    def add_directive(
+        self,
+        *bool_directives: "BoolDirective",
+        **directives_map: MatchDirective,
+    ) -> Self:
+        self.bool_directives = (*self.bool_directives, *bool_directives)
+        self.directives_map.update(directives_map)
+        return self
+
     def set_match_params(
         self, match_params: t.Dict[str, t.Any] = None
     ) -> Self:

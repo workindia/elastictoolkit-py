@@ -1,15 +1,8 @@
-import warnings
 from typing import Callable
 
 
-class DirectiveHelper:
-    # NOTE: This class is deprecated. Use `ValueTransformer` instead. | Reason: Suboptimal name
-    warnings.warn(
-        "DirectiveHelper is deprecated. Use `ValueTransformer` instead.",
-        DeprecationWarning,
-    )
-
-    """Helper class for directives"""
+class ValueTransformer:
+    """Helper class for value transformers : These are functions that will be called during runtime to transform values"""
 
     @staticmethod
     def unpacked(func: Callable):
