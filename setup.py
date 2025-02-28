@@ -37,7 +37,7 @@ develop_requires = install_requires + [
 
 setup(
     name="elastictoolkit-py",
-    version="0.4.0",
+    version="0.5.0",
     url="https://github.com/workindia/elastictoolkit-py",
     license="MIT license",
     author="Nikhil Kumar",
