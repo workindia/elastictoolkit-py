@@ -3,6 +3,9 @@ from elastictoolkit.queryutils.builder.helpers.valueparser import (
     RuntimeValueParser,
     ValueParser,
 )
+from elastictoolkit.queryutils.builder.helpers.valuetransformer import (
+    ValueTransformer,
+)
 
 
 class TestRuntimeValueParser:
@@ -16,6 +19,7 @@ class TestRuntimeValueParser:
                 "contacts": {"email": "john@example.com", "phone": None},
             },
             "settings": {"enabled": True, "values": [1, 2, 3]},
+            "user_name": "JohnDoe",
         }
 
     @pytest.fixture
@@ -155,3 +159,25 @@ class TestRuntimeValueParser:
         """Test unpacking list with asterisk"""
         result = parser.parse(["*"])
         assert result == ["*"]
+
+    def test_callable(self, parser):
+        """Test parsing of callable values"""
+
+        def get_name(data):
+            return data["user"]["name"]
+
+        assert parser.parse(get_name) == "John"
+        assert (
+            parser.parse(ValueTransformer.normalize_str("user_name"))
+            == "johndoe"
+        )
+
+    def test_callable_with_unpack(self, parser):
+        """Test parsing of callable values with unpacking"""
+
+        def get_addresses(data):
+            return data["user"]["addresses"]
+
+        assert parser.parse(
+            ["data.user.name", ValueTransformer.unpacked(get_addresses)]
+        ) == ["John", "addr1", "addr2"]
