@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-03-15
+### Added
+- `FieldExistsDirective` for checking field existence in queries.
+- Support for `CustomScoreFunctionDirective` to enhance scoring capabilities.
+- `null_filter_action` for all `ScoreFunctionDirective`(s) to handle null values.
+- Configuration to modify base boolean operation via `DirectiveEngine`. via `base_query_op`
+- Handling in `RuntimeValueParser` for asterisk in `values_list`.
+- `named_query` option for `CustomMatchDirective`.
+- Basic validations in `BaseQueryEngine`.
+### Fixed
+- Copy logic in `FieldExistsDirective`.
+### Deprecated
+- `DirectiveHelper` class.
+
 ## 0.4.0 (2025-02-12)
 ### Added
 - Updated multi-value search for multi-fields const query and fixed nested field name
