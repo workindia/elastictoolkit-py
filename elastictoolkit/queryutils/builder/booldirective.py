@@ -28,6 +28,7 @@ class BoolDirective(BaseDirective):
         self.directives_map = directives_map
         self.directive_value_mapper = None
         self._match_params = None
+        self._name = None
 
     def copy(self, match_params: bool = False, **kwargs):
         self_copy = (
@@ -45,6 +46,10 @@ class BoolDirective(BaseDirective):
         self, match_params: t.Dict[str, t.Any] = None
     ) -> Self:
         self._match_params = match_params
+        return self
+
+    def set_name(self, name: str) -> Self:
+        self._name = name
         return self
 
     def set_directive_value_mapper(
@@ -109,6 +114,7 @@ class OrDirective(BoolDirective):
         match_queries = self._collect_match_queries()
         bool_builder = BooleanDSLBuilder()
         bool_builder.add_should_query(*match_queries)
+        bool_builder.set_name(self._name)
         return bool_builder.build()
 
 
@@ -121,4 +127,5 @@ class AndDirective(BoolDirective):
             bool_builder.add_must_query(*match_queries)
         else:
             bool_builder.add_filter_query(*match_queries)
+        bool_builder.set_name(self._name)
         return bool_builder.build()

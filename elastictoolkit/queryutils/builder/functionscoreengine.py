@@ -30,6 +30,11 @@ class FunctionScoreEngine(BaseQueryEngine):
         self._match_dsl_query = None
 
     def set_match_dsl(self, dsl_query: DSLQuery) -> Self:
+        if not isinstance(dsl_query, DSLQuery):
+            raise ValueError(
+                "`set_match_dsl`: param `dsl_query` must be a `DSLQuery`"
+            )
+
         self._match_dsl_query = dsl_query
         return self
 
