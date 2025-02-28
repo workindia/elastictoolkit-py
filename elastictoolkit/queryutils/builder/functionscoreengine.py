@@ -6,13 +6,12 @@ from elasticquerydsl.score import ScoreFunction
 
 
 from elastictoolkit.queryutils.builder.base import BaseQueryEngine
-from elastictoolkit.queryutils.builder.matchdirectivebuilder import (
-    MatchDirectiveBuilder,
-)
 from elastictoolkit.queryutils.builder.scorefunctiondirective import (
     ScoreFunctionDirective,
 )
-from elastictoolkit.queryutils.builder.matchdirective import MatchDirective
+from elastictoolkit.queryutils.builder.scorefunctiondirectivebuilder import (
+    ScoreFunctionDirectiveBuilder,
+)
 
 
 class FunctionScoreEngine(BaseQueryEngine):
@@ -21,6 +20,7 @@ class FunctionScoreEngine(BaseQueryEngine):
         boost_mode: t.Optional[str] = None
         max_boost: t.Optional[float] = None
         min_score: t.Optional[float] = None
+        __all__ = ["score_mode", "boost_mode", "max_boost", "min_score"]
 
     class Config(BaseQueryEngine.Config):
         """`Config` class should be overriden in Sub-Class"""
@@ -30,6 +30,11 @@ class FunctionScoreEngine(BaseQueryEngine):
         self._match_dsl_query = None
 
     def set_match_dsl(self, dsl_query: DSLQuery) -> Self:
+        if not isinstance(dsl_query, DSLQuery):
+            raise ValueError(
+                "`set_match_dsl`: param `dsl_query` must be a `DSLQuery`"
+            )
+
         self._match_dsl_query = dsl_query
         return self
 
@@ -53,7 +58,7 @@ class FunctionScoreEngine(BaseQueryEngine):
         score_functions = []
 
         for attr, score_directive in engine_attributes.items():
-            score_directive = self._prepare_score_directive(
+            score_directive = self._build_score_directive(
                 score_directive, attr, match_directive_config
             )
             score_func = score_directive.generate_score_function()
@@ -62,38 +67,18 @@ class FunctionScoreEngine(BaseQueryEngine):
 
         return score_functions
 
-    def _prepare_score_directive(
+    def _build_score_directive(
         self,
         score_directive: ScoreFunctionDirective,
         attr: str,
         match_directive_config: dict,
     ) -> ScoreFunctionDirective:
-        score_directive = score_directive.copy().set_match_params(
-            self.match_params
-        )
-        filter_directive = score_directive.get_filter_directive()
-
-        if filter_directive is not None:
-            filter_directive = self._build_filter_directive(
-                filter_directive, attr, match_directive_config
-            )
-            filter_dsl = filter_directive.to_dsl()
-            score_directive.set_filter_dsl(filter_dsl)
-
-        return score_directive
-
-    def _build_filter_directive(
-        self,
-        filter_directive: MatchDirective,
-        attr: str,
-        match_directive_config: dict,
-    ) -> MatchDirective:
         return (
-            MatchDirectiveBuilder(filter_directive)
+            ScoreFunctionDirectiveBuilder(score_directive)
             .set_value_mapper(attr, self.Config.value_mapper)
             .set_match_params(self.match_params)
             .set_parent_engine_name(self.__class__.__name__)
-            .set_match_directive_config(**match_directive_config)
+            .set_match_directive_config(match_directive_config)
             .build()
         )
 
@@ -105,7 +90,7 @@ class FunctionScoreEngine(BaseQueryEngine):
             "functions": score_functions,
         }
 
-        for param in ("score_mode", "boost_mode", "max_boost", "min_score"):
+        for param in self._DefaultConfig.__all__:
             value = getattr(
                 self.Config, param, getattr(self._DefaultConfig, param)
             )

@@ -24,3 +24,11 @@ class WaterFallMatchOp(str, Enum):
     GTE = "gte"
     LT = "lt"
     LTE = "lte"
+
+
+class ScoreNullFilterAction(str, Enum):
+    """What to do when a `ScoreFunctionDirective` has a filter directive but it is resolved to None"""
+
+    RAISE_EXC = "raise_exc"
+    ALLOW = "allow"
+    DISABLE_FUNCTION = "disable_function"

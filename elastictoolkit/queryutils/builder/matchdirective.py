@@ -729,3 +729,72 @@ class ScriptMatchDirective(MatchDirective):
         if missing_params:
             return False
         return True
+
+
+class FieldExistsDirective(MatchDirective):
+    def __init__(
+        self,
+        rule: FieldMatchType = FieldMatchType.ANY,
+        mode=MatchMode.INCLUDE,
+        name: t.Optional[str] = None,
+    ):
+        self.rule = rule
+        self.name = name
+        super().__init__(mode, nullable_value=False)
+
+    def copy(self, **kwargs) -> Self:
+        self_copy = self.__class__(self.mode, self.nullable_value, self.name)
+        return self_copy
+
+    def _get_bool_and_queries(self) -> t.List[DSLQuery]:
+        return self._get_bool_queries(MatchMode.INCLUDE)
+
+    def _get_bool_must_not_queries(self) -> t.List[DSLQuery]:
+        return self._get_bool_queries(MatchMode.EXCLUDE)
+
+    def _get_bool_queries(self, match_mode: MatchMode) -> t.List[DSLQuery]:
+        if self.mode != match_mode:
+            return []
+        match_dsl_query = self._make_match_dsl_query()
+        return [match_dsl_query] if match_dsl_query else []
+
+    def _make_match_dsl_query(self) -> ExistsQuery:
+        fields, nested_fields = self.fields
+
+        if not fields and not nested_fields:
+            if not self.nullable_value:
+                raise ValueError(
+                    f"No field provided for {type(self).__name__}"
+                )
+            return None
+
+        exists_queries = self._get_fields_queries()
+        exists_queries.extend(self._get_nested_fields_queries())
+        if len(exists_queries) > 1:
+            bool_query = self._build_bool_query(exists_queries)
+            return bool_query
+        return exists_queries[0] if exists_queries else None
+
+    def _get_fields_queries(self) -> t.List[DSLQuery]:
+        fields, _ = self.fields
+        return [ExistsQuery(field, _name=self.name) for field in fields]
+
+    def _get_nested_fields_queries(self) -> t.List[DSLQuery]:
+        _, nested_fields = self.fields
+        return [
+            NestedQuery(
+                path=field.nested_path,
+                query=ExistsQuery(field.field_name, _name=self.name),
+            )
+            for field in nested_fields
+        ]
+
+    def _build_bool_query(self, match_queries: t.List[DSLQuery]) -> DSLQuery:
+        bool_builder = BooleanDSLBuilder()
+
+        if self.rule == FieldMatchType.ANY:
+            bool_builder.add_should_query(*match_queries)
+        elif self.rule == FieldMatchType.ALL:
+            bool_builder.add_filter_query(*match_queries)
+
+        return bool_builder.build()
