@@ -331,3 +331,145 @@ class TestAllowedEngineMissingName(MatchDirectiveBaseTest):
 
         except Exception as e:
             return self._validate_exc(e, _allowed_exc_cls, _exc_message)
+
+
+class TestCustomMatchDirectiveStaticName(MatchDirectiveBaseTest):
+    """Test static name for CustomMatchDirective"""
+
+    class CustomDirectiveWithStaticName(CustomMatchDirective):
+        allowed_engine_cls_name = "TestEngine"
+        name = "static_name"
+
+        def get_directive(self):
+            return AndDirective(
+                experience=ConstMatchDirective(FieldMatchType.ANY),
+            )
+
+    match_directive = CustomDirectiveWithStaticName()
+    match_params = {
+        "experience": ["senior"],
+        "skills": ["python", "elasticsearch"],
+    }
+    value_mapper = ValueMapper()
+
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "filter": [
+                            {
+                                "bool": {
+                                    "filter": [
+                                        {
+                                            "term": {
+                                                "experience": {
+                                                    "value": "senior"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ],
+                        "_name": "static_name",
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestCustomMatchDirectiveConstructorName(MatchDirectiveBaseTest):
+    """Test constructor name for CustomMatchDirective"""
+
+    class CustomDirectiveWithConstructorName(CustomMatchDirective):
+        allowed_engine_cls_name = "TestEngine"
+
+        def get_directive(self):
+            return AndDirective(
+                experience=ConstMatchDirective(FieldMatchType.ANY),
+            )
+
+    match_directive = CustomDirectiveWithConstructorName(
+        name="constructor_name"
+    )
+    match_params = {
+        "experience": ["senior"],
+    }
+    value_mapper = ValueMapper()
+
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "filter": [
+                            {
+                                "bool": {
+                                    "filter": [
+                                        {
+                                            "term": {
+                                                "experience": {
+                                                    "value": "senior"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ],
+                        "_name": "constructor_name",
+                    }
+                }
+            ]
+        }
+    }
+
+
+class TestCustomMatchDirectiveOverrideName(MatchDirectiveBaseTest):
+    """Test override name for CustomMatchDirective"""
+
+    class CustomDirectiveWithOverriddenName(CustomMatchDirective):
+        allowed_engine_cls_name = "TestEngine"
+
+        def get_name(self):
+            return f"overridden_name_{self._match_params.get('experience')[0]}"
+
+        def get_directive(self):
+            return AndDirective(
+                experience=ConstMatchDirective(FieldMatchType.ANY),
+            )
+
+    match_directive = CustomDirectiveWithOverriddenName()
+    match_params = {
+        "experience": ["senior"],
+    }
+    value_mapper = ValueMapper()
+
+    expected_query = {
+        "bool": {
+            "filter": [
+                {
+                    "bool": {
+                        "filter": [
+                            {
+                                "bool": {
+                                    "filter": [
+                                        {
+                                            "term": {
+                                                "experience": {
+                                                    "value": "senior"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ],
+                        "_name": "overridden_name_senior",
+                    }
+                }
+            ]
+        }
+    }

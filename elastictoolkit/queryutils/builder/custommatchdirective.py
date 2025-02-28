@@ -4,7 +4,7 @@ from elasticquerydsl.base import DSLQuery, BoolQuery
 
 
 from elastictoolkit.queryutils.builder.matchdirective import MatchDirective
-from elastictoolkit.queryutils.consts import MatchMode
+from elastictoolkit.queryutils.consts import BaseMatchOp, MatchMode
 from elastictoolkit.queryutils.builder.directivevaluemapper import (
     DirectiveValueMapper,
 )
@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 
 
 class CustomMatchDirective(MatchDirective):
-    allowed_engine_cls_name = None
+    allowed_engine_cls_name: str = None
+    name: str = None
 
     def __init_subclass__(cls, **kwargs):
         """Ensures that each subclass defines `allowed_engine_cls` explicitly"""
@@ -25,11 +26,15 @@ class CustomMatchDirective(MatchDirective):
             )
 
     def __init__(
-        self, mode=MatchMode.INCLUDE, nullable_value: bool = False
+        self,
+        mode=MatchMode.INCLUDE,
+        nullable_value: bool = False,
+        name: t.Optional[str] = None,
     ) -> None:
         super().__init__(mode, nullable_value)
         self._directive_value_mapper = None
         self._parent_engine_name = None
+        self._name = name or self.name
 
     def copy(
         self,
@@ -45,6 +50,7 @@ class CustomMatchDirective(MatchDirective):
         self_copy._fields = self._fields if fields else None
         self_copy._values_list = self._values_list if values else None
         self_copy._match_params = self._match_params if match_params else None
+        self_copy._name = self._name
         return self_copy
 
     def validate_directive_engine(self, parent_engine_name: str) -> Self:
@@ -64,6 +70,9 @@ class CustomMatchDirective(MatchDirective):
         self._directive_value_mapper = directive_value_mapper
         return self
 
+    def get_name(self) -> t.Optional[str]:
+        return self._name
+
     def get_directive(self) -> t.Optional["BoolDirective"]:
         raise NotImplementedError(
             f"`get_directives` method is not implemented in {self.__class__.__name__}"
@@ -77,11 +86,24 @@ class CustomMatchDirective(MatchDirective):
         bool_directive.set_match_params(
             self._match_params
         ).set_directive_value_mapper(self._directive_value_mapper)
-        bool_directive.configure(self._value_parser_config, self._and_query_op)
+        bool_directive.configure(**self.config_kwargs)
+        bool_directive.set_name(self.get_name())
         return bool_directive.to_dsl()
 
     def _get_bool_and_queries(self) -> t.List[DSLQuery]:
-        if self.mode != MatchMode.INCLUDE:
+        if (
+            self.mode != MatchMode.INCLUDE
+            or self._base_match_op != BaseMatchOp.AND
+        ):
+            return []
+        query = self._get_custom_directive_query()
+        return [query] if query else []
+
+    def _get_bool_should_queries(self) -> t.List[DSLQuery]:
+        if (
+            self.mode != MatchMode.INCLUDE
+            or self._base_match_op != BaseMatchOp.OR
+        ):
             return []
         query = self._get_custom_directive_query()
         return [query] if query else []

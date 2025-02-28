@@ -28,6 +28,7 @@ class BoolDirective(BaseDirective):
         self.directives_map = directives_map
         self.directive_value_mapper = None
         self._match_params = None
+        self._name = None
 
     def copy(self, match_params: bool = False, **kwargs):
         self_copy = (
@@ -35,16 +36,29 @@ class BoolDirective(BaseDirective):
                 *self.bool_directives,
                 **self.directives_map,
             )
-            .configure(self._value_parser_config, self._and_query_op)
+            .configure(**self.config_kwargs)
             .set_directive_value_mapper(self.directive_value_mapper)
         )
         self_copy._match_params = self._match_params if match_params else None
         return self_copy
 
+    def add_directive(
+        self,
+        *bool_directives: "BoolDirective",
+        **directives_map: MatchDirective,
+    ) -> Self:
+        self.bool_directives = (*self.bool_directives, *bool_directives)
+        self.directives_map.update(directives_map)
+        return self
+
     def set_match_params(
         self, match_params: t.Dict[str, t.Any] = None
     ) -> Self:
         self._match_params = match_params
+        return self
+
+    def set_name(self, name: str) -> Self:
+        self._name = name
         return self
 
     def set_directive_value_mapper(
@@ -73,7 +87,7 @@ class BoolDirective(BaseDirective):
         for directive in self.bool_directives:
             directive = (
                 directive.copy()
-                .configure(self._value_parser_config, self._and_query_op)
+                .configure(**self.config_kwargs)
                 .set_directive_value_mapper(self.directive_value_mapper)
                 .set_match_params(self.match_params)
             )
@@ -109,6 +123,7 @@ class OrDirective(BoolDirective):
         match_queries = self._collect_match_queries()
         bool_builder = BooleanDSLBuilder()
         bool_builder.add_should_query(*match_queries)
+        bool_builder.set_name(self._name)
         return bool_builder.build()
 
 
@@ -121,4 +136,5 @@ class AndDirective(BoolDirective):
             bool_builder.add_must_query(*match_queries)
         else:
             bool_builder.add_filter_query(*match_queries)
+        bool_builder.set_name(self._name)
         return bool_builder.build()

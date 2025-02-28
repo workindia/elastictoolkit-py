@@ -155,6 +155,7 @@ class MatchDirectiveBaseTest:
             match_params (Dict[str, Any]): Additional match parameters
             expected_query (Dict[str, Any]): Expected query structure
         """
+        _match_directive = _match_directive.copy()
         if _match_params:
             _match_directive.set_match_params(_match_params)
         if _fields:

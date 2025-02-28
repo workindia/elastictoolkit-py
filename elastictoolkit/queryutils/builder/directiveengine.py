@@ -10,12 +10,13 @@ from elastictoolkit.queryutils.builder.matchdirective import MatchDirective
 
 class DirectiveEngine(BaseQueryEngine):
     def to_dsl(self) -> DSLQuery:
-        bool_builder = BooleanDSLBuilder()
         engine_attributes = self.get_engine_attr(MatchDirective)
         match_directive_config = (
             getattr(self.Config, "match_directive_config", None)
             or self._DefaultConfig.match_directive_config
         )
+
+        bool_builder = BooleanDSLBuilder()
         for attr, match_directive in engine_attributes.items():
             match_directive = (
                 MatchDirectiveBuilder(match_directive)
