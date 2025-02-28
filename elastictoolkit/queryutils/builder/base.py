@@ -7,7 +7,7 @@ from elasticquerydsl.base import DSLQuery
 from elastictoolkit.queryutils.builder.helpers.valueparser import (
     RuntimeValueParser,
 )
-from elastictoolkit.queryutils.consts import AndQueryOp
+from elastictoolkit.queryutils.consts import AndQueryOp, BaseMatchOp
 from elastictoolkit.queryutils.builder.directivevaluemapper import (
     DirectiveValueMapper,
 )
@@ -25,23 +25,44 @@ class BaseDirective:
             "prefix": "match_params",
         }
         and_query_op: AndQueryOp = AndQueryOp.FILTER
+        base_match_op: BaseMatchOp = BaseMatchOp.AND
 
     def __init__(self):
         self._value_parser_config = self._DefaultConfig.value_parser_config
         self._and_query_op = self._DefaultConfig.and_query_op
+        self._base_match_op = self._DefaultConfig.base_match_op
 
     def configure(
         self,
         value_parser_config: t.Dict[str, t.Any] = ...,
         and_query_op: AndQueryOp = ...,
+        base_match_op: BaseMatchOp = ...,
     ):
+        """Configure the directive with the given parameters.
+
+        Args:
+            value_parser_config: The configuration for the value parser
+            and_query_op: The operation to use for the AND query [default: FILTER]
+            base_match_op: The base match operation for the query [default: AND]
+        """
+        # NOTE: When adding a new parameter, make sure to update the `get_config_kwargs` method
         if value_parser_config is not ...:
             self._value_parser_config = (
                 value_parser_config or self._value_parser_config
             )
         if and_query_op is not ...:
             self._and_query_op = and_query_op or self._and_query_op
+        if base_match_op is not ...:
+            self._base_match_op = base_match_op or self._base_match_op
         return self
+
+    @property
+    def config_kwargs(self) -> t.Dict[str, t.Any]:
+        return {
+            "value_parser_config": self._value_parser_config,
+            "and_query_op": self._and_query_op,
+            "base_match_op": self._base_match_op,
+        }
 
     def copy(self, **kwargs) -> Self:
         logger.warning(
