@@ -1,0 +1,61 @@
+name: Publish to Test PyPI
+
+on:
+    workflow_dispatch:
+        inputs:
+            pre_release_part:
+                description: "Select the part of the version to increment"
+                required: true
+                default: "patch"
+                type: choice
+                options:
+                    - major
+                    - minor
+                    - patch
+
+            pre_release_type:
+                description: "Select the type of pre-release"
+                required: false
+                default: "dev"
+                type: choice
+                options:
+                    - dev
+
+jobs:
+    build-and-publish:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: Set up Python
+              uses: actions/setup-python@v4
+              with:
+                  python-version: "3.x" # Set the Python version you need
+
+            - name: Install build tools
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install setuptools wheel twine bump2version==1.0.0
+
+            - name: Set environment variable for Test PyPi new version
+              run: |
+                NEW_VERSION="$(make release PART=${{ github.event.inputs.pre_release_part }} dry-run=1 | awk -F 'new_version=' '{printf $2}').${{ github.event.inputs.pre_release_type }}$GITHUB_RUN_NUMBER"
+                echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+                echo "pre_release_part=${{ github.event.inputs.pre_release_part }} | pre_release_type=${{ github.event.inputs.pre_release_type }} | NEW_VERSION=$NEW_VERSION"
+
+            - name: Bump Version
+              run: |
+                bump2version prekind --no-commit --no-tag --new-version $NEW_VERSION
+
+            - name: Build the package
+              run: |
+                  python setup.py sdist bdist_wheel
+
+            - name: Publish package to Test PyPI
+              env:
+                  TWINE_USERNAME: __token__
+                  TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+              run: |
+                  twine upload --repository-url https://test.pypi.org/legacy/ dist/*
