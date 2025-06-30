@@ -2,7 +2,7 @@
 
 __author__ = """Nikhil Kumar"""
 __email__ = "nikhil.kumar@workindia.in"
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 # flake8: noqa
 from .indexes import BaseIndex

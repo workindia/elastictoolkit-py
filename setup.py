@@ -20,6 +20,7 @@ install_requires = [
     "typing-extensions",
     "elasticsearch5>=5.5.3",
     "elasticsearch8>=8.2.0",
+    "elasticquery-dsl-py>=1.0.0,<2.0.0",
     "pydantic==1.9.1,<2.0.0",
 ]
 
@@ -36,7 +37,7 @@ develop_requires = install_requires + [
 
 setup(
     name="elastictoolkit-py",
-    version="0.4.0",
+    version="0.5.0",
     url="https://github.com/workindia/elastictoolkit-py",
     license="MIT license",
     author="Nikhil Kumar",
