@@ -119,6 +119,13 @@ For more comprehensive examples ranging from basic to advanced DirectiveEngine u
 
 The documentation is organized as interactive Jupyter notebooks covering everything from basic concepts to advanced use cases for Query Generation Utils:
 
+### Try it out on Google Colab! 🚀
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](docs/README.md#table-of-contents)
+
+*Click the button above to access interactive notebooks with complete examples and tutorials.*
+
+
 📚 **[Documentation Directory](docs/)**
 
 The comprehensive documentation includes:

@@ -4,18 +4,18 @@ This documentation provides comprehensive examples and guides for using the Elas
 
 ## Table of Contents
 
-| Notebook | Description |
-|----------|-------------|
-| **[01_Introduction.ipynb](01_Introduction.ipynb)** | Overview and basic setup |
-| **[02_CoreConcepts.ipynb](02_CoreConcepts.ipynb)** | Understanding fundamental components |
-| **[03_BasicQueries.ipynb](03_BasicQueries.ipynb)** | Working with individual directives |
-| **[04_DirectiveEngines.ipynb](04_DirectiveEngines.ipynb)** | Orchestrating multiple directives |
-| **[05_ValueMapping.ipynb](05_ValueMapping.ipynb)** | Handling field-value relationships |
-| **[06_BooleanLogic.ipynb](06_BooleanLogic.ipynb)** | Combining queries with AND/OR logic |
-| **[07_CustomDirectives.ipynb](07_CustomDirectives.ipynb)** | Creating reusable query components |
-| **[08_FunctionScore.ipynb](08_FunctionScore.ipynb)** | Boosting and filtering results |
-| **[09_CustomScoreFunctions.ipynb](09_CustomScoreFunctions.ipynb)** | Creating reusable scoring functions |
-| **[10_ExampleUsecaseEcommerce.ipynb](10_ExampleUsecaseEcommerce.ipynb)** | Complete E-commerce search application |
+| Notebook | Description | Google Colab |
+|----------|-------------|--------------|
+| **[01_Introduction.ipynb](01_Introduction.ipynb)** | Overview and basic setup | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/01_Introduction.ipynb) |
+| **[02_CoreConcepts.ipynb](02_CoreConcepts.ipynb)** | Understanding fundamental components | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/02_CoreConcepts.ipynb) |
+| **[03_BasicQueries.ipynb](03_BasicQueries.ipynb)** | Working with individual directives | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/03_BasicQueries.ipynb) |
+| **[04_DirectiveEngines.ipynb](04_DirectiveEngines.ipynb)** | Orchestrating multiple directives | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/04_DirectiveEngines.ipynb) |
+| **[05_ValueMapping.ipynb](05_ValueMapping.ipynb)** | Handling field-value relationships | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/05_ValueMapping.ipynb) |
+| **[06_BooleanLogic.ipynb](06_BooleanLogic.ipynb)** | Combining queries with AND/OR logic | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/06_BooleanLogic.ipynb) |
+| **[07_CustomDirectives.ipynb](07_CustomDirectives.ipynb)** | Creating reusable query components | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/07_CustomDirectives.ipynb) |
+| **[08_FunctionScore.ipynb](08_FunctionScore.ipynb)** | Boosting and filtering results | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/08_FunctionScore.ipynb) |
+| **[09_CustomScoreFunctions.ipynb](09_CustomScoreFunctions.ipynb)** | Creating reusable scoring functions | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/09_CustomScoreFunctions.ipynb) |
+| **[10_ExampleUsecaseEcommerce.ipynb](10_ExampleUsecaseEcommerce.ipynb)** | Complete E-commerce search application | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/workindia/elastictoolkit-py/blob/main/docs/10_ExampleUsecaseEcommerce.ipynb) |
 
 ### Learning Path
 
